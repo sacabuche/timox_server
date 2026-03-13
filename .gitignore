@@ -1,2 +1,3 @@
 timox_server
 *.db
+tmp/

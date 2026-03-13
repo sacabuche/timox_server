@@ -12,7 +12,10 @@
   <article style="text-align:center">
     <header><h2>{{.Child.Name}} is ready!</h2></header>
     <p>Enter this token in the Timox app on the child's phone:</p>
-    <span class="token-display">{{.Token}}</span>
+    <span style="display:inline-flex;align-items:center;gap:.5rem">
+      <span class="token-display">{{.Token}}</span>
+      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+    </span>
     <p style="margin-top:1rem"><small class="muted">Expires in {{.ExpiresIn}}.</small></p>
     <footer>
       <a href="/web/children/{{.Child.UUID}}" role="button">Go to Child Page</a>

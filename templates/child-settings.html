@@ -55,7 +55,10 @@
 
 {{define "child-token"}}
   <div hx-get="/web/children/{{.ChildUUID}}/token-status" hx-trigger="every 30s" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">
-    <span class="token-display">{{.Token}}</span>
+    <span style="display:inline-flex;align-items:center;gap:.5rem">
+      <span class="token-display">{{.Token}}</span>
+      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+    </span>
     <p><small class="muted">Expires at {{.ExpiresAt}}</small></p>
   </div>
 {{end}}

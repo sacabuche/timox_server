@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"html/template"
 	"net/http"
 	"time"
@@ -15,6 +16,12 @@ var templateFiles embed.FS
 
 var funcMap = template.FuncMap{
 	"today": func() string { return time.Now().Format("2006-01-02") },
+	"fmtMin": func(m int) string {
+		if m < 60 {
+			return fmt.Sprintf("%d", m)
+		}
+		return fmt.Sprintf("%dh%02d", m/60, m%60)
+	},
 }
 
 var tmpl = template.Must(
