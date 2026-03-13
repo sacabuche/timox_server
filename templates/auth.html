@@ -1,0 +1,48 @@
+{{define "login-page"}}
+  <article>
+    <header><h2>Timox Parent Login</h2></header>
+    <div id="login-area">
+      <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" placeholder="you@example.com" required>
+        <button type="submit">Send Login Token</button>
+      </form>
+      <p style="text-align:center"><small>Don't have an account? <a href="/web/register">Register here</a></small></p>
+    </div>
+  </article>
+{{end}}
+
+{{define "register-page"}}
+  <article>
+    <header><h2>Create Parent Account</h2></header>
+    {{if .Error}}<p class="text-red">{{.Error}}</p>{{end}}
+    {{if .Success}}
+      <p class="text-green">Account created! <a href="/web/login">Login here</a></p>
+    {{else}}
+      <form method="POST" action="/web/register">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" placeholder="you@example.com" required>
+        <button type="submit">Create Account</button>
+      </form>
+    {{end}}
+  </article>
+{{end}}
+
+{{define "token-step"}}
+  <form hx-post="/web/login" hx-target="#login-area" hx-swap="innerHTML">
+    <input type="hidden" name="email" value="{{.Email}}">
+    <p>Check the server console and enter the token below:</p>
+    <label for="token">Token</label>
+    <input type="text" name="token" id="token" placeholder="ABCDEFGH" required style="text-transform:uppercase;letter-spacing:.2rem" autofocus>
+    <button type="submit">Login</button>
+  </form>
+{{end}}
+
+{{define "login-error"}}
+  <p class="text-red">{{.Error}}</p>
+  <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML">
+    <label for="email">Email</label>
+    <input type="email" name="email" id="email" placeholder="you@example.com" required>
+    <button type="submit">Send Login Token</button>
+  </form>
+{{end}}

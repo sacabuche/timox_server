@@ -1,0 +1,31 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timox Parent</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    .token-display{font-family:monospace;font-size:1.5rem;letter-spacing:.3rem;padding:.5rem 1rem;background:var(--pico-code-background-color);border-radius:4px;display:inline-block;max-width:100%;word-break:break-all}
+    .text-red{color:#c62828}.text-green{color:#2e7d32}.text-orange{color:#ef6c00}
+    .mb-0{margin-bottom:0}
+    small.muted{color:var(--pico-muted-color)}
+    fieldset[role="group"]>input,fieldset[role="group"]>button{margin-bottom:0;height:48px!important;box-sizing:border-box}
+    dialog footer button{padding:.5rem 1rem;margin:0}
+
+    /* Mobile optimizations */
+    @media (max-width: 600px) {
+      .overflow-auto { overflow-x: auto; }
+      table th:nth-child(4), table td:nth-child(4) { display: none; } /* Hide Status column on mobile */
+      h2 { font-size: 1.5rem; }
+      .token-display { font-size: 1.2rem; letter-spacing: 0.15rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    {{.Content}}
+  </main>
+</body>
+</html>{{end}}

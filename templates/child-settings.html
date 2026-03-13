@@ -1,0 +1,65 @@
+{{define "child-settings-page"}}
+  <nav>
+    <ul><li><a href="/web/children/{{.Child.UUID}}" class="secondary">&larr; Back</a></li></ul>
+  </nav>
+
+  <h2>Settings — {{.Child.Name}}</h2>
+
+  <section>
+    <h4>Login Token</h4>
+    <p><small class="muted">Generate a token to link a new device.</small></p>
+    <div id="token-{{.Child.UUID}}">
+      <button hx-post="/web/children/{{.Child.UUID}}/token" hx-target="#token-{{.Child.UUID}}" hx-swap="innerHTML">Generate Token</button>
+    </div>
+  </section>
+
+  <section>
+    <h4>Delayed Changes</h4>
+    <p><small class="muted">When enabled, increases to app time limits take effect after 24 hours. Decreases, blocks, and limit removals always apply immediately.</small></p>
+    <div id="delayed-changes-{{.Child.UUID}}">
+      {{template "delayed-changes-toggle" .}}
+    </div>
+  </section>
+
+  <section style="margin-top: 4rem; border-top: 1px solid var(--pico-muted-border-color); padding-top: 2rem">
+    <dialog id="delete-dialog-{{.Child.UUID}}" onclick="if(event.target===this)this.close()">
+      <article>
+        <header>
+          <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
+          <h3>Delete {{.Child.Name}}</h3>
+        </header>
+        <p>Permanently delete all data for <strong>{{.Child.Name}}</strong>?</p>
+        <label>Type <strong>{{.Child.Name}}</strong> to confirm</label>
+        <input type="text" placeholder="{{.Child.Name}}" oninput="var b=this.closest('article').querySelector('.delete-confirm-btn');b.disabled=this.value.replace(/\s/g,'').toLowerCase()!=='{{.Child.Name}}'.replace(/\s/g,'').toLowerCase()">
+        <footer style="display:flex;justify-content:space-between;align-items:center">
+          <button class="secondary" style="width:auto;margin:0" onclick="this.closest('dialog').close()">Cancel</button>
+          <button class="delete-confirm-btn" style="background:#c62828;border-color:#c62828;width:auto;margin:0" disabled hx-delete="/web/children/{{.Child.UUID}}" hx-on::after-request="document.getElementById('delete-dialog-{{.Child.UUID}}').close();window.location='/web/dashboard'">DELETE</button>
+        </footer>
+      </article>
+    </dialog>
+    <button class="outline secondary" style="color: #c62828; border-color: #c62828" onclick="document.getElementById('delete-dialog-{{.Child.UUID}}').showModal()">Delete Child</button>
+  </section>
+{{end}}
+
+{{define "delayed-changes-toggle"}}
+  <label>
+    <input type="checkbox" name="enabled" {{if .DelayedChanges}}checked{{end}}
+      hx-post="/web/children/{{.Child.UUID}}/delayed-changes"
+      hx-target="#delayed-changes-{{.Child.UUID}}"
+      hx-swap="innerHTML"
+      hx-include="this"
+      hx-trigger="change"
+    > Enable delayed changes (24h delay on limit increases)
+  </label>
+{{end}}
+
+{{define "child-token"}}
+  <div hx-get="/web/children/{{.ChildUUID}}/token-status" hx-trigger="every 30s" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">
+    <span class="token-display">{{.Token}}</span>
+    <p><small class="muted">Expires at {{.ExpiresAt}}</small></p>
+  </div>
+{{end}}
+
+{{define "child-token-button"}}
+  <button hx-post="/web/children/{{.ChildUUID}}/token" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">Generate Token</button>
+{{end}}

@@ -1,0 +1,49 @@
+{{define "dashboard-page"}}
+  <nav>
+    <ul><li><strong>Timox Parent</strong></li></ul>
+    <ul><li><a href="/web/logout" class="secondary">Logout</a></li></ul>
+  </nav>
+
+  <dialog id="add-child-dialog" onclick="if(event.target===this)this.close()">
+    <article>
+      <header>
+        <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
+        <h3>Add Child</h3>
+      </header>
+      <form hx-post="/web/children" hx-target="#children-list" hx-swap="innerHTML" hx-on::after-request="this.reset();document.getElementById('add-child-dialog').close()">
+        <label for="child-name">Name</label>
+        <input type="text" name="name" id="child-name" placeholder="Child name" required>
+        <button type="submit">Add Child</button>
+      </form>
+    </article>
+  </dialog>
+
+  <section>
+    <div id="children-list">
+      {{template "children-list" .}}
+    </div>
+  </section>
+{{end}}
+
+{{define "children-list"}}
+  {{range .Children}}
+    <a href="/web/children/{{.UUID}}" style="display:block;text-decoration:none">
+      <article style="margin-bottom:.5rem; padding: 1rem">
+        <div style="display:flex; justify-content: space-between; align-items: center">
+          <strong>{{.Name}}</strong>
+          <span>&rarr;</span>
+        </div>
+      </article>
+    </a>
+  {{end}}
+  {{if .Children}}
+    <div style="text-align:center;margin-top:1rem">
+      <button class="outline" style="width:3.5rem;height:3.5rem;border-radius:50%;padding:0;font-size:2rem;line-height:1" onclick="document.getElementById('add-child-dialog').showModal()">+</button>
+    </div>
+  {{else}}
+    <div style="text-align:center;margin-top:2rem">
+      <p>No children yet.</p>
+      <button onclick="document.getElementById('add-child-dialog').showModal()">Add Child</button>
+    </div>
+  {{end}}
+{{end}}
