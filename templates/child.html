@@ -28,7 +28,7 @@
   <div class="overflow-auto">
   {{if or .Limited .Blocked .Other}}
   <table class="striped">
-    <thead><tr><th>App</th><th>Min</th><th>Limit</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>App</th><th>Used today</th><th>Limit</th><th>Status</th><th></th></tr></thead>
     <tbody>
     {{range .Limited}}
     <tr>
@@ -100,8 +100,19 @@
     <h3>Delete limit</h3>
   </header>
   <p>Remove limit for <strong>{{.PackageName}}</strong>?</p>
+  {{if .DelayedChanges}}
+  <p style="font-size:0.9rem">You have the 24-hour delay enabled. If you delete this limit, the change will apply immediately.</p>
+  <p style="font-size:0.85rem;color:#555">To confirm, type the following:</p>
+  <p style="font-size:0.85rem;background:var(--pico-code-background);padding:.5rem .75rem;border-radius:4px;user-select:all"><em>I'm not cheating, I really want this limit to be deleted</em></p>
+  <input type="text" id="delete-confirm-input-{{.ChildUUID}}" placeholder="Type the phrase above" oninput="var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');var normalize=function(s){return s.trim().toLowerCase().replace(/[', ]/g,'')};btn.disabled=normalize(this.value)!==normalize(`I'm not cheating, I really want this limit to be deleted`)" onkeydown="if(event.key==='Enter'){var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');if(!btn.disabled)btn.click()}">
+  <footer style="display:flex;justify-content:space-between;align-items:center">
+    <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">Cancel</button>
+    <button id="delete-confirm-btn-{{.ChildUUID}}" disabled style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">Delete</button>
+  </footer>
+  {{else}}
   <footer style="display:flex;justify-content:space-between;align-items:center">
     <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">Cancel</button>
     <button style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">Confirm</button>
   </footer>
+  {{end}}
 {{end}}

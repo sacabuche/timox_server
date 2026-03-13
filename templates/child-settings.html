@@ -16,6 +16,8 @@
   <section>
     <h4>Delayed Changes</h4>
     <p><small class="muted">When enabled, increases to app time limits take effect after 24 hours. Decreases, blocks, and limit removals always apply immediately.</small></p>
+    <p><small class="muted">Disabling this setting also takes 24 hours to apply, giving your child advance notice of the change.</small></p>
+    <p><small class="muted"><strong>Tip:</strong> Try not to set limits on everything; focus on the apps that genuinely need boundaries.</small></p>
     <div id="delayed-changes-{{.Child.UUID}}">
       {{template "delayed-changes-toggle" .}}
     </div>
@@ -43,7 +45,7 @@
 
 {{define "delayed-changes-toggle"}}
   <label>
-    <input type="checkbox" name="enabled" {{if .DelayedChanges}}checked{{end}}
+    <input type="checkbox" name="enabled" {{if .Checked}}checked{{end}}
       hx-post="/web/children/{{.Child.UUID}}/delayed-changes"
       hx-target="#delayed-changes-{{.Child.UUID}}"
       hx-swap="innerHTML"
@@ -51,6 +53,9 @@
       hx-trigger="change"
     > Enable delayed changes (24h delay on limit increases)
   </label>
+  {{if .DisableAt}}
+  <p><small style="color:#e65100">Scheduled to disable on {{.DisableAt.Format "Jan 2, 15:04"}}. Re-enable to cancel.</small></p>
+  {{end}}
 {{end}}
 
 {{define "child-token"}}

@@ -75,10 +75,13 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 	child.Name = name.String
 
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
+	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
 
 	renderPage(w, "child-settings-page", map[string]interface{}{
 		"Child":          child,
 		"DelayedChanges": delayed,
+		"DisableAt":      disableAt,
+		"Checked":        delayed && disableAt == nil,
 	})
 }
 
@@ -92,18 +95,23 @@ func (wh *WebHandler) toggleDelayedChanges(w http.ResponseWriter, r *http.Reques
 	}
 
 	enabled := r.FormValue("enabled") == "on"
-	wh.DB.Exec("UPDATE users SET delayed_changes = ? WHERE uuid = ?", enabled, childUUID)
 
-	// If disabling, apply all pending limits immediately
 	if !enabled {
-		applyPendingLimits(wh.DB, childUUID)
-		// Delete any remaining pending limits (future ones)
-		wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ?", childUUID)
+		// Schedule disable for 24h from now instead of applying immediately
+		disableAt := time.Now().Add(24 * time.Hour)
+		wh.DB.Exec("UPDATE users SET delayed_changes_disable_at = ? WHERE uuid = ?", disableAt, childUUID)
+	} else {
+		// Re-enabling: clear any pending disable
+		wh.DB.Exec("UPDATE users SET delayed_changes = true, delayed_changes_disable_at = NULL WHERE uuid = ?", childUUID)
 	}
 
+	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
+	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
 	renderPartial(w, "delayed-changes-toggle", map[string]interface{}{
 		"Child":          User{UUID: childUUID},
-		"DelayedChanges": enabled,
+		"DelayedChanges": delayed,
+		"DisableAt":      disableAt,
+		"Checked":        delayed && disableAt == nil,
 	})
 }
 

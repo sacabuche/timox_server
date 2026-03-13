@@ -47,8 +47,22 @@ func applyPendingLimits(db *sql.DB, childUUID string) {
 
 func isDelayedChangesEnabled(db *sql.DB, childUUID string) bool {
 	var enabled bool
-	db.QueryRow("SELECT delayed_changes FROM users WHERE uuid = ?", childUUID).Scan(&enabled)
+	var disableAt *time.Time
+	db.QueryRow("SELECT delayed_changes, delayed_changes_disable_at FROM users WHERE uuid = ?", childUUID).Scan(&enabled, &disableAt)
+	if enabled && disableAt != nil && time.Now().After(*disableAt) {
+		db.Exec("UPDATE users SET delayed_changes = false, delayed_changes_disable_at = NULL WHERE uuid = ?", childUUID)
+		applyPendingLimits(db, childUUID)
+		db.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ?", childUUID)
+		return false
+	}
 	return enabled
+}
+
+// delayedChangesDisableAt returns the scheduled disable time, or nil if not pending.
+func delayedChangesDisableAt(db *sql.DB, childUUID string) *time.Time {
+	var disableAt *time.Time
+	db.QueryRow("SELECT delayed_changes_disable_at FROM users WHERE uuid = ?", childUUID).Scan(&disableAt)
+	return disableAt
 }
 
 // --- Apps (merged usage + limits) ---
@@ -122,9 +136,10 @@ func (wh *WebHandler) confirmDeleteChildLimit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	renderPartial(w, "limit-confirm-delete", map[string]string{
-		"ChildUUID":   childUUID,
-		"PackageName": packageName,
+	renderPartial(w, "limit-confirm-delete", map[string]interface{}{
+		"ChildUUID":      childUUID,
+		"PackageName":    packageName,
+		"DelayedChanges": isDelayedChangesEnabled(wh.DB, childUUID),
 	})
 }
 
