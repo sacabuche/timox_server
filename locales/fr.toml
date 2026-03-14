@@ -1,0 +1,234 @@
+[LoginHeading]
+other = """Connexion parent Timox"""
+
+[EmailLabel]
+other = """Adresse e-mail"""
+
+[EmailPlaceholder]
+other = """vous@exemple.com"""
+
+[SendLoginToken]
+other = """Envoyer le jeton de connexion"""
+
+[NoAccount]
+other = """Vous n'avez pas de compte ?"""
+
+[RegisterHere]
+other = """Inscrivez-vous ici"""
+
+[CreateAccount]
+other = """Créer un compte parent"""
+
+[CreateAccountButton]
+other = """Créer un compte"""
+
+[AccountCreated]
+other = """Compte créé !"""
+
+[LoginHere]
+other = """Connectez-vous ici"""
+
+[TokenInstruction]
+other = """Consultez la console du serveur et entrez le jeton ci-dessous :"""
+
+[TokenLabel]
+other = """Jeton"""
+
+[TokenPlaceholder]
+other = """ABCDEFGH"""
+
+[LoginButton]
+other = """Se connecter"""
+
+[DashboardHeading]
+other = """Timox Parent"""
+
+[LogoutButton]
+other = """Se déconnecter"""
+
+[AddChild]
+other = """Ajouter un enfant"""
+
+[ChildNameLabel]
+other = """Nom"""
+
+[ChildNamePlaceholder]
+other = """Nom de l'enfant"""
+
+[NoChildrenYet]
+other = """Aucun enfant pour l'instant."""
+
+[Back]
+other = """← Retour"""
+
+[ChildReady]
+other = """{{.Name}} est prêt !"""
+
+[TokenEnterInstruction]
+other = """Entrez ce jeton dans l'application Timox sur le téléphone de l'enfant :"""
+
+[Copy]
+other = """Copier"""
+
+[Copied]
+other = """Copié !"""
+
+[ExpiresIn]
+other = """Expire dans {{.Duration}}."""
+
+[GoToChildPage]
+other = """Aller à la page de l'enfant"""
+
+[TokenExpired]
+other = """Jeton expiré"""
+
+[TokenExpiredFor]
+other = """Le jeton pour {{.Name}} a expiré."""
+
+[GenerateNewToken]
+other = """Générer un nouveau jeton"""
+
+[SettingsHeading]
+other = """Paramètres — {{.Name}}"""
+
+[LoginTokenSection]
+other = """Jeton de connexion"""
+
+[LoginTokenHelp]
+other = """Générez un jeton pour lier un nouvel appareil."""
+
+[GenerateToken]
+other = """Générer un jeton"""
+
+[DelayedChangesSection]
+other = """Modifications différées"""
+
+[DelayedChangesHelp1]
+other = """Lorsqu'activée, les augmentations des limites de temps des applications prennent effet après 24 heures. Les diminutions, blocages et suppressions de limites s'appliquent toujours immédiatement."""
+
+[DelayedChangesHelp2]
+other = """La désactivation de ce paramètre prend également 24 heures à s'appliquer, donnant à votre enfant un préavis du changement."""
+
+[DelayedChangesHelp3]
+other = """Conseil : N'imposez pas de limites à tout ; concentrez-vous sur les applications qui en ont vraiment besoin."""
+
+[DelayedChangesCheckbox]
+other = """Activer les modifications différées (délai de 24h sur les augmentations de limites)"""
+
+[DelayedChangesDisableNotice]
+other = """Désactivation prévue le {{.Date}}. Réactivez pour annuler."""
+
+[DeleteChild]
+other = """Supprimer l'enfant"""
+
+[DeleteChildTitle]
+other = """Supprimer {{.Name}}"""
+
+[DeleteChildConfirm]
+other = """Supprimer définitivement toutes les données de {{.Name}} ?"""
+
+[DeleteChildTypeInstruction]
+other = """Tapez {{.Name}} pour confirmer"""
+
+[Cancel]
+other = """Annuler"""
+
+[Delete]
+other = """SUPPRIMER"""
+
+[TokenExpiresAt]
+other = """Expire à {{.Time}}"""
+
+[StaleReportWarning]
+other = """Aucun rapport depuis 24h. Vérifiez l'appareil de l'enfant."""
+
+[NewToken]
+other = """Nouveau jeton"""
+
+[LoadingApps]
+other = """Chargement des applications..."""
+
+[TotalToday]
+other = """Total aujourd'hui :"""
+
+[AppColumnHeader]
+other = """Application"""
+
+[UsedTodayColumnHeader]
+other = """Utilisé aujourd'hui"""
+
+[LimitColumnHeader]
+other = """Limite"""
+
+[StatusColumnHeader]
+other = """Statut"""
+
+[OverLimit]
+other = """Dépassé"""
+
+[Blocked]
+other = """Bloqué"""
+
+[NoLimit]
+other = """Aucune"""
+
+[PendingIncrease]
+other = """→ {{.Limit}} ({{.In}})"""
+
+[EditButton]
+other = """Modifier"""
+
+[SetButton]
+other = """Définir"""
+
+[NoAppsTracked]
+other = """Aucune application suivie pour l'instant."""
+
+[BlockAppEntirely]
+other = """Bloquer l'application entièrement"""
+
+[DailyLimitLabel]
+other = """Limite quotidienne (minutes)"""
+
+[DeleteLimitButton]
+other = """Supprimer"""
+
+[SaveButton]
+other = """Enregistrer"""
+
+[DeleteLimitHeading]
+other = """Supprimer la limite"""
+
+[RemoveLimitFor]
+other = """Supprimer la limite pour {{.App}} ?"""
+
+[DelayedActiveWarning]
+other = """Vous avez le délai de 24 heures activé. Si vous supprimez cette limite, le changement s'appliquera immédiatement."""
+
+[TypeFollowing]
+other = """Pour confirmer, tapez ce qui suit :"""
+
+[ConfirmPhrase]
+other = """I'm not cheating, I really want this limit to be deleted"""
+
+[TypePhraseAbove]
+other = """Tapez la phrase ci-dessus"""
+
+[ConfirmButton]
+other = """Confirmer"""
+
+[DelayedChangesOn]
+other = """Les modifications différées sont activées — les augmentations prendront 24h à s'appliquer."""
+
+[PendingIncreaseNotice]
+other = """Augmentation en attente à {{.Limit}} min (applicable le {{.Date}})"""
+
+[LangEN]
+other = """EN"""
+
+[LangES]
+other = """ES"""
+
+[LangFR]
+other = """FR"""
+

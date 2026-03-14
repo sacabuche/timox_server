@@ -1,19 +1,19 @@
 {{define "dashboard-page"}}
   <nav>
-    <ul><li><strong>Timox Parent</strong></li></ul>
-    <ul><li><a href="/web/logout" class="secondary">Logout</a></li></ul>
+    <ul><li><strong>{{call .T "DashboardHeading"}}</strong></li></ul>
+    <ul><li><a href="/web/logout" class="secondary">{{call .T "LogoutButton"}}</a></li></ul>
   </nav>
 
   <dialog id="add-child-dialog" onclick="if(event.target===this)this.close()">
     <article>
       <header>
         <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
-        <h3>Add Child</h3>
+        <h3>{{call .T "AddChild"}}</h3>
       </header>
       <form hx-post="/web/children" hx-target="#children-list" hx-swap="innerHTML" hx-on::after-request="this.reset();document.getElementById('add-child-dialog').close()">
-        <label for="child-name">Name</label>
-        <input type="text" name="name" id="child-name" placeholder="Child name" required>
-        <button type="submit">Add Child</button>
+        <label for="child-name">{{call .T "ChildNameLabel"}}</label>
+        <input type="text" name="name" id="child-name" placeholder="{{call .T "ChildNamePlaceholder"}}" required>
+        <button type="submit">{{call .T "AddChild"}}</button>
       </form>
     </article>
   </dialog>
@@ -42,8 +42,8 @@
     </div>
   {{else}}
     <div style="text-align:center;margin-top:2rem">
-      <p>No children yet.</p>
-      <button onclick="document.getElementById('add-child-dialog').showModal()">Add Child</button>
+      <p>{{call .T "NoChildrenYet"}}</p>
+      <button onclick="document.getElementById('add-child-dialog').showModal()">{{call .T "AddChild"}}</button>
     </div>
   {{end}}
 {{end}}

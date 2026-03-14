@@ -15,7 +15,7 @@ import (
 func (wh *WebHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	parentUUID := r.Context().Value(CtxUserUUID).(string)
 	children := wh.listChildren(parentUUID)
-	renderPage(w, "dashboard-page", map[string]interface{}{
+	renderPage(w, r, "dashboard-page", map[string]interface{}{
 		"Children": children,
 	})
 }
@@ -50,7 +50,7 @@ func (wh *WebHandler) showChild(w http.ResponseWriter, r *http.Request) {
 		staleReport = !hasRecentReport
 	}
 
-	renderPage(w, "child-page", map[string]interface{}{
+	renderPage(w, r, "child-page", map[string]interface{}{
 		"Child":       child,
 		"StaleReport": staleReport,
 	})
@@ -77,7 +77,7 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
 	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
 
-	renderPage(w, "child-settings-page", map[string]interface{}{
+	renderPage(w, r, "child-settings-page", map[string]interface{}{
 		"Child":          child,
 		"DelayedChanges": delayed,
 		"DisableAt":      disableAt,
@@ -107,7 +107,7 @@ func (wh *WebHandler) toggleDelayedChanges(w http.ResponseWriter, r *http.Reques
 
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
 	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
-	renderPartial(w, "delayed-changes-toggle", map[string]interface{}{
+	renderPartial(w, r, "delayed-changes-toggle", map[string]interface{}{
 		"Child":          User{UUID: childUUID},
 		"DelayedChanges": delayed,
 		"DisableAt":      disableAt,
@@ -139,7 +139,7 @@ func (wh *WebHandler) showChildWelcome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderPage(w, "child-welcome-page", map[string]interface{}{
+	renderPage(w, r, "child-welcome-page", map[string]interface{}{
 		"Child":     child,
 		"Token":     token,
 		"ExpiresIn": formatDuration(time.Until(expiresAt)),
@@ -171,14 +171,14 @@ func (wh *WebHandler) checkWelcomeStatus(w http.ResponseWriter, r *http.Request)
 	if time.Now().After(expiresAt) {
 		// Token expired — delete it and show expired state
 		wh.DB.Exec("DELETE FROM auth_tokens WHERE token = ?", token)
-		renderPartial(w, "welcome-token-expired", map[string]interface{}{
+		renderPartial(w, r, "welcome-token-expired", map[string]interface{}{
 			"Child": child,
 		})
 		return
 	}
 
 	// Token still active — keep showing it
-	renderPartial(w, "welcome-token-active", map[string]interface{}{
+	renderPartial(w, r, "welcome-token-active", map[string]interface{}{
 		"Child":     child,
 		"Token":     token,
 		"ExpiresIn": formatDuration(time.Until(expiresAt)),
@@ -217,7 +217,7 @@ func (wh *WebHandler) deleteChild(w http.ResponseWriter, r *http.Request) {
 	)
 
 	children := wh.listChildren(parentUUID)
-	renderPartial(w, "children-list", map[string]interface{}{"Children": children})
+	renderPartial(w, r, "children-list", map[string]interface{}{"Children": children})
 }
 
 func (wh *WebHandler) generateChildToken(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +233,7 @@ func (wh *WebHandler) generateChildToken(w http.ResponseWriter, r *http.Request)
 	expiresAt := time.Now().Add(10 * time.Minute)
 	wh.DB.Exec("INSERT INTO auth_tokens (token, user_uuid, expires_at) VALUES (?, ?, ?)", token, childUUID, expiresAt)
 
-	renderPartial(w, "child-token", map[string]string{
+	renderPartial(w, r, "child-token", map[string]interface{}{
 		"ChildUUID": childUUID,
 		"Token":     token,
 		"ExpiresAt": expiresAt.Format("15:04:05"),
@@ -258,12 +258,12 @@ func (wh *WebHandler) checkChildTokenStatus(w http.ResponseWriter, r *http.Reque
 
 	if err != nil || time.Now().After(expiresAt) {
 		// Token expired or used (deleted) — show the button again
-		renderPartial(w, "child-token-button", map[string]string{"ChildUUID": childUUID})
+		renderPartial(w, r, "child-token-button", map[string]interface{}{"ChildUUID": childUUID})
 		return
 	}
 
 	// Token still valid — keep showing it
-	renderPartial(w, "child-token", map[string]string{
+	renderPartial(w, r, "child-token", map[string]interface{}{
 		"ChildUUID": childUUID,
 		"Token":     token,
 		"ExpiresAt": expiresAt.Format("15:04:05"),

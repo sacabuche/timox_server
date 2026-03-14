@@ -1,23 +1,23 @@
 {{define "child-settings-page"}}
   <nav>
-    <ul><li><a href="/web/children/{{.Child.UUID}}" class="secondary">&larr; Back</a></li></ul>
+    <ul><li><a href="/web/children/{{.Child.UUID}}" class="secondary">{{call .T "Back"}}</a></li></ul>
   </nav>
 
-  <h2>Settings — {{.Child.Name}}</h2>
+  <h2>{{call .T "SettingsHeading" (dict "Name" .Child.Name)}}</h2>
 
   <section>
-    <h4>Login Token</h4>
-    <p><small class="muted">Generate a token to link a new device.</small></p>
+    <h4>{{call .T "LoginTokenSection"}}</h4>
+    <p><small class="muted">{{call .T "LoginTokenHelp"}}</small></p>
     <div id="token-{{.Child.UUID}}">
-      <button hx-post="/web/children/{{.Child.UUID}}/token" hx-target="#token-{{.Child.UUID}}" hx-swap="innerHTML">Generate Token</button>
+      <button hx-post="/web/children/{{.Child.UUID}}/token" hx-target="#token-{{.Child.UUID}}" hx-swap="innerHTML">{{call .T "GenerateToken"}}</button>
     </div>
   </section>
 
   <section>
-    <h4>Delayed Changes</h4>
-    <p><small class="muted">When enabled, increases to app time limits take effect after 24 hours. Decreases, blocks, and limit removals always apply immediately.</small></p>
-    <p><small class="muted">Disabling this setting also takes 24 hours to apply, giving your child advance notice of the change.</small></p>
-    <p><small class="muted"><strong>Tip:</strong> Try not to set limits on everything; focus on the apps that genuinely need boundaries.</small></p>
+    <h4>{{call .T "DelayedChangesSection"}}</h4>
+    <p><small class="muted">{{call .T "DelayedChangesHelp1"}}</small></p>
+    <p><small class="muted">{{call .T "DelayedChangesHelp2"}}</small></p>
+    <p><small class="muted"><strong>{{call .T "DelayedChangesHelp3"}}</strong></small></p>
     <div id="delayed-changes-{{.Child.UUID}}">
       {{template "delayed-changes-toggle" .}}
     </div>
@@ -28,18 +28,18 @@
       <article>
         <header>
           <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
-          <h3>Delete {{.Child.Name}}</h3>
+          <h3>{{call .T "DeleteChildTitle" (dict "Name" .Child.Name)}}</h3>
         </header>
-        <p>Permanently delete all data for <strong>{{.Child.Name}}</strong>?</p>
-        <label>Type <strong>{{.Child.Name}}</strong> to confirm</label>
+        <p>{{call .T "DeleteChildConfirm" (dict "Name" .Child.Name)}}</p>
+        <label>{{call .T "DeleteChildTypeInstruction" (dict "Name" .Child.Name)}}</label>
         <input type="text" placeholder="{{.Child.Name}}" oninput="var b=this.closest('article').querySelector('.delete-confirm-btn');b.disabled=this.value.replace(/\s/g,'').toLowerCase()!=='{{.Child.Name}}'.replace(/\s/g,'').toLowerCase()">
         <footer style="display:flex;justify-content:space-between;align-items:center">
-          <button class="secondary" style="width:auto;margin:0" onclick="this.closest('dialog').close()">Cancel</button>
-          <button class="delete-confirm-btn" style="background:#c62828;border-color:#c62828;width:auto;margin:0" disabled hx-delete="/web/children/{{.Child.UUID}}" hx-on::after-request="document.getElementById('delete-dialog-{{.Child.UUID}}').close();window.location='/web/dashboard'">DELETE</button>
+          <button class="secondary" style="width:auto;margin:0" onclick="this.closest('dialog').close()">{{call .T "Cancel"}}</button>
+          <button class="delete-confirm-btn" style="background:#c62828;border-color:#c62828;width:auto;margin:0" disabled hx-delete="/web/children/{{.Child.UUID}}" hx-on::after-request="document.getElementById('delete-dialog-{{.Child.UUID}}').close();window.location='/web/dashboard'">{{call .T "Delete"}}</button>
         </footer>
       </article>
     </dialog>
-    <button class="outline secondary" style="color: #c62828; border-color: #c62828" onclick="document.getElementById('delete-dialog-{{.Child.UUID}}').showModal()">Delete Child</button>
+    <button class="outline secondary" style="color: #c62828; border-color: #c62828" onclick="document.getElementById('delete-dialog-{{.Child.UUID}}').showModal()">{{call .T "DeleteChild"}}</button>
   </section>
 {{end}}
 
@@ -51,10 +51,10 @@
       hx-swap="innerHTML"
       hx-include="this"
       hx-trigger="change"
-    > Enable delayed changes (24h delay on limit increases)
+    > {{call .T "DelayedChangesCheckbox"}}
   </label>
   {{if .DisableAt}}
-  <p><small style="color:#e65100">Scheduled to disable on {{.DisableAt.Format "Jan 2, 15:04"}}. Re-enable to cancel.</small></p>
+  <p><small style="color:#e65100">{{call .T "DelayedChangesDisableNotice" (dict "Date" (.DisableAt.Format "Jan 2, 15:04"))}}</small></p>
   {{end}}
 {{end}}
 
@@ -62,12 +62,12 @@
   <div hx-get="/web/children/{{.ChildUUID}}/token-status" hx-trigger="every 30s" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">
     <span style="display:inline-flex;align-items:center;gap:.5rem">
       <span class="token-display">{{.Token}}</span>
-      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">{{call .T "Copy"}}</button>
     </span>
-    <p><small class="muted">Expires at {{.ExpiresAt}}</small></p>
+    <p><small class="muted">{{call .T "TokenExpiresAt" (dict "Time" .ExpiresAt)}}</small></p>
   </div>
 {{end}}
 
 {{define "child-token-button"}}
-  <button hx-post="/web/children/{{.ChildUUID}}/token" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">Generate Token</button>
+  <button hx-post="/web/children/{{.ChildUUID}}/token" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "GenerateToken"}}</button>
 {{end}}

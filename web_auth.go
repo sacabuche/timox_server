@@ -53,17 +53,17 @@ func webAuthMiddleware(next http.Handler) http.Handler {
 // --- Public handlers ---
 
 func (wh *WebHandler) showLogin(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, "login-page", nil)
+	renderPage(w, r, "login-page", nil)
 }
 
 func (wh *WebHandler) showRegister(w http.ResponseWriter, r *http.Request) {
-	renderPage(w, "register-page", map[string]interface{}{})
+	renderPage(w, r, "register-page", map[string]interface{}{})
 }
 
 func (wh *WebHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.FormValue("email"))
 	if email == "" {
-		renderPage(w, "register-page", map[string]interface{}{"Error": "Email is required"})
+		renderPage(w, r, "register-page", map[string]interface{}{"Error": "Email is required"})
 		return
 	}
 
@@ -71,36 +71,36 @@ func (wh *WebHandler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	_, err := wh.DB.Exec("INSERT INTO users (uuid, email, role) VALUES (?, ?, 'parent')", newUUID, email)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
-			renderPage(w, "register-page", map[string]interface{}{"Error": "Email already exists"})
+			renderPage(w, r, "register-page", map[string]interface{}{"Error": "Email already exists"})
 			return
 		}
-		renderPage(w, "register-page", map[string]interface{}{"Error": "Server error"})
+		renderPage(w, r, "register-page", map[string]interface{}{"Error": "Server error"})
 		return
 	}
 
-	renderPage(w, "register-page", map[string]interface{}{"Success": true})
+	renderPage(w, r, "register-page", map[string]interface{}{"Success": true})
 }
 
 func (wh *WebHandler) handleRequestToken(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.FormValue("email"))
 	if email == "" {
-		renderPartial(w, "login-error", map[string]string{"Error": "Email is required"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Email is required"})
 		return
 	}
 
 	var userUUID string
 	err := wh.DB.QueryRow("SELECT uuid FROM users WHERE email = ? AND role = 'parent'", email).Scan(&userUUID)
 	if err == sql.ErrNoRows {
-		renderPartial(w, "login-error", map[string]string{"Error": "User not found"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "User not found"})
 		return
 	} else if err != nil {
-		renderPartial(w, "login-error", map[string]string{"Error": "Server error"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Server error"})
 		return
 	}
 
 	token, err := generateToken()
 	if err != nil {
-		renderPartial(w, "login-error", map[string]string{"Error": "Failed to generate token"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Failed to generate token"})
 		return
 	}
 
@@ -108,7 +108,7 @@ func (wh *WebHandler) handleRequestToken(w http.ResponseWriter, r *http.Request)
 	wh.DB.Exec("INSERT INTO auth_tokens (token, user_uuid, expires_at) VALUES (?, ?, ?)", token, userUUID, expiresAt)
 
 	fmt.Printf("[Web] Auth token for %s: %s\n", email, token)
-	renderPartial(w, "token-step", map[string]string{"Email": email})
+	renderPartial(w, r, "token-step", map[string]interface{}{"Email": email})
 }
 
 func (wh *WebHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -116,34 +116,34 @@ func (wh *WebHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimSpace(strings.ToUpper(r.FormValue("token")))
 
 	if email == "" || token == "" {
-		renderPartial(w, "login-error", map[string]string{"Error": "Email and token are required"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Email and token are required"})
 		return
 	}
 
 	var userUUID, role string
 	err := wh.DB.QueryRow("SELECT uuid, role FROM users WHERE email = ?", email).Scan(&userUUID, &role)
 	if err != nil {
-		renderPartial(w, "login-error", map[string]string{"Error": "Invalid credentials"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Invalid credentials"})
 		return
 	}
 
 	var expiresAt time.Time
 	err = wh.DB.QueryRow("SELECT expires_at FROM auth_tokens WHERE token = ? AND user_uuid = ?", token, userUUID).Scan(&expiresAt)
 	if err != nil {
-		renderPartial(w, "login-error", map[string]string{"Error": "Invalid credentials"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Invalid credentials"})
 		return
 	}
 
 	wh.DB.Exec("DELETE FROM auth_tokens WHERE token = ?", token)
 
 	if time.Now().After(expiresAt) {
-		renderPartial(w, "login-error", map[string]string{"Error": "Token expired"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Token expired"})
 		return
 	}
 
 	jwtStr, err := generateJWT(userUUID, role)
 	if err != nil {
-		renderPartial(w, "login-error", map[string]string{"Error": "Server error"})
+		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Server error"})
 		return
 	}
 

@@ -27,6 +27,7 @@ type WebHandler struct {
 
 func (wh *WebHandler) Routes() chi.Router {
 	r := chi.NewRouter()
+	r.Use(languageMiddleware)
 
 	// Public
 	r.Get("/login", wh.showLogin)

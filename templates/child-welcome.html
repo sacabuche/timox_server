@@ -1,6 +1,6 @@
 {{define "child-welcome-page"}}
   <nav>
-    <ul><li><a href="/web/dashboard" class="secondary">&larr; Back</a></li></ul>
+    <ul><li><a href="/web/dashboard" class="secondary">{{call .T "Back"}}</a></li></ul>
   </nav>
 
   <div id="welcome-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/welcome-status" hx-trigger="every 5s" hx-swap="innerHTML">
@@ -10,28 +10,28 @@
 
 {{define "welcome-token-active"}}
   <article style="text-align:center">
-    <header><h2>{{.Child.Name}} is ready!</h2></header>
-    <p>Enter this token in the Timox app on the child's phone:</p>
+    <header><h2>{{call .T "ChildReady" (dict "Name" .Child.Name)}}</h2></header>
+    <p>{{call .T "TokenEnterInstruction"}}</p>
     <span style="display:inline-flex;align-items:center;gap:.5rem">
       <span class="token-display">{{.Token}}</span>
-      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+      <button class="outline secondary" style="margin:0;padding:.15rem .4rem;font-size:.8rem;width:auto" onclick="navigator.clipboard.writeText('{{.Token}}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">{{call .T "Copy"}}</button>
     </span>
-    <p style="margin-top:1rem"><small class="muted">Expires in {{.ExpiresIn}}.</small></p>
+    <p style="margin-top:1rem"><small class="muted">{{call .T "ExpiresIn" (dict "Duration" .ExpiresIn)}}</small></p>
     <footer>
-      <a href="/web/children/{{.Child.UUID}}" role="button">Go to Child Page</a>
+      <a href="/web/children/{{.Child.UUID}}" role="button">{{call .T "GoToChildPage"}}</a>
     </footer>
   </article>
 {{end}}
 
 {{define "welcome-token-expired"}}
   <article style="text-align:center">
-    <header><h2>Token expired</h2></header>
-    <p>The token for <strong>{{.Child.Name}}</strong> has expired.</p>
+    <header><h2>{{call .T "TokenExpired"}}</h2></header>
+    <p>{{call .T "TokenExpiredFor" (dict "Name" .Child.Name)}}</p>
     <div id="token-{{.Child.UUID}}">
-      <button hx-post="/web/children/{{.Child.UUID}}/token" hx-target="#token-{{.Child.UUID}}" hx-swap="innerHTML">Generate New Token</button>
+      <button hx-post="/web/children/{{.Child.UUID}}/token" hx-target="#token-{{.Child.UUID}}" hx-swap="innerHTML">{{call .T "GenerateNewToken"}}</button>
     </div>
     <footer style="margin-top:1rem">
-      <a href="/web/children/{{.Child.UUID}}" role="button" class="secondary">Go to Child Page</a>
+      <a href="/web/children/{{.Child.UUID}}" role="button" class="secondary">{{call .T "GoToChildPage"}}</a>
     </footer>
   </article>
 {{end}}

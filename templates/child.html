@@ -1,6 +1,6 @@
 {{define "child-page"}}
   <nav>
-    <ul><li><a href="/web/dashboard" class="secondary">&larr; Back</a></li></ul>
+    <ul><li><a href="/web/dashboard" class="secondary">{{call .T "Back"}}</a></li></ul>
     <ul><li><a href="/web/children/{{.Child.UUID}}/settings" role="button" class="outline secondary" style="padding:.2rem .5rem;font-size:1.2rem;line-height:1">&#9881;</a></li></ul>
   </nav>
 
@@ -8,14 +8,14 @@
 
   {{if .StaleReport}}
   <article style="text-align:center;background:var(--pico-del-color);color:var(--pico-color);padding: 1rem">
-    <p style="margin-bottom:0.5rem"><small>No reports in 24h. Check child's device.</small></p>
-    <a href="/web/children/{{.Child.UUID}}/settings" style="font-size:0.9rem">New token</a>
+    <p style="margin-bottom:0.5rem"><small>{{call .T "StaleReportWarning"}}</small></p>
+    <a href="/web/children/{{.Child.UUID}}/settings" style="font-size:0.9rem">{{call .T "NewToken"}}</a>
   </article>
   {{end}}
 
   <section>
     <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, every 30s" hx-swap="innerHTML">
-      <p aria-busy="true">Loading apps...</p>
+      <p aria-busy="true">{{call .T "LoadingApps"}}</p>
     </div>
   </section>
 {{end}}
@@ -24,11 +24,11 @@
   <dialog id="limit-dialog-{{.ChildUUID}}" onclick="if(event.target===this)this.close()">
     <article id="limit-dialog-content-{{.ChildUUID}}"></article>
   </dialog>
-  {{if .TotalUsage}}<p><strong>Total today:</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
+  {{if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   <div class="overflow-auto">
   {{if or .Limited .Blocked .Other}}
   <table class="striped">
-    <thead><tr><th>App</th><th>Used today</th><th>Limit</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>{{call .T "AppColumnHeader"}}</th><th>{{call .T "UsedTodayColumnHeader"}}</th><th>{{call .T "LimitColumnHeader"}}</th><th>{{call .T "StatusColumnHeader"}}</th><th></th></tr></thead>
     <tbody>
     {{range .Limited}}
     <tr>
@@ -36,19 +36,19 @@
       <td>{{if .UsedToday}}{{fmtMin .TotalUsedMinutes}}{{else}}0{{end}}</td>
       <td>{{fmtMin .DailyLimitMinutes}}{{if .HasPending}} <small style="color:#e65100" title="Pending increase to {{fmtMin .PendingLimit}} min">&rarr;{{fmtMin .PendingLimit}} ({{.PendingIn}})</small>{{end}}</td>
       <td>
-        {{if .OverLimit}}<span class="text-red">Over</span>
+        {{if .OverLimit}}<span class="text-red">{{call $.T "OverLimit"}}</span>
         {{else}}<span class="text-green">{{fmtMin .Remaining}}</span>{{end}}
       </td>
-      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">Edit</button></td>
+      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "EditButton"}}</button></td>
     </tr>
     {{end}}
     {{range .Blocked}}
     <tr>
       <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.DisplayName}}</td>
       <td>{{if .UsedToday}}{{fmtMin .TotalUsedMinutes}}{{else}}0{{end}}</td>
-      <td><span class="text-red">Blocked</span></td>
-      <td><span class="text-red">Blocked</span></td>
-      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">Edit</button></td>
+      <td><span class="text-red">{{call $.T "Blocked"}}</span></td>
+      <td><span class="text-red">{{call $.T "Blocked"}}</span></td>
+      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "EditButton"}}</button></td>
     </tr>
     {{end}}
     {{range .Other}}
@@ -56,14 +56,14 @@
       <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.DisplayName}}</td>
       <td>{{if .UsedToday}}{{fmtMin .TotalUsedMinutes}}{{else}}0{{end}}</td>
       <td>—</td>
-      <td><small class="muted">None</small></td>
-      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">Set</button></td>
+      <td><small class="muted">{{call $.T "NoLimit"}}</small></td>
+      <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "SetButton"}}</button></td>
     </tr>
     {{end}}
     </tbody>
   </table>
   {{else}}
-    <p><small class="muted">No apps tracked yet.</small></p>
+    <p><small class="muted">{{call .T "NoAppsTracked"}}</small></p>
   {{end}}
   </div>
 {{end}}
@@ -74,45 +74,45 @@
     <h3 style="font-size: 1.2rem; margin-bottom: 0">{{.PackageName}}</h3>
   </header>
   {{if .HasPending}}
-  <p style="color:#e65100;font-size:0.85rem;margin-bottom:0.5rem">Pending increase to {{.PendingLimit}} min (applies {{.PendingAppliesAt}})</p>
+  <p style="color:#e65100;font-size:0.85rem;margin-bottom:0.5rem">{{call .T "PendingIncreaseNotice" (dict "Limit" .PendingLimit "Date" .PendingAppliesAt)}}</p>
   {{end}}
   {{if .DelayedChanges}}
-  <p style="color:#555;font-size:0.85rem;margin-bottom:0.5rem">Delayed changes is on — increases will take 24h to apply.</p>
+  <p style="color:#555;font-size:0.85rem;margin-bottom:0.5rem">{{call .T "DelayedChangesOn"}}</p>
   {{end}}
   <form hx-post="/web/children/{{.ChildUUID}}/limits" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">
     <input type="hidden" name="package_name" value="{{.PackageName}}">
-    <label><input type="checkbox" name="blocked" id="blocked-checkbox" {{if .Blocked}}checked{{end}} onchange="var lf=this.closest('form').querySelector('#limit-fields');var inp=lf.querySelector('input');if(this.checked){lf.style.display='none';inp.disabled=true}else{lf.style.display='block';inp.disabled=false}"> Block app entirely</label>
+    <label><input type="checkbox" name="blocked" id="blocked-checkbox" {{if .Blocked}}checked{{end}} onchange="var lf=this.closest('form').querySelector('#limit-fields');var inp=lf.querySelector('input');if(this.checked){lf.style.display='none';inp.disabled=true}else{lf.style.display='block';inp.disabled=false}"> {{call .T "BlockAppEntirely"}}</label>
     <div id="limit-fields" style="{{if .Blocked}}display:none{{end}}">
-      <label for="daily_limit_minutes">Daily limit (minutes)</label>
+      <label for="daily_limit_minutes">{{call .T "DailyLimitLabel"}}</label>
       <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" {{if .Blocked}}disabled{{end}} {{if not .Blocked}}required{{end}} autofocus>
     </div>
   </form>
   <footer style="display:flex;justify-content:space-between;align-items:center">
     {{if .HasLimit}}
-    <button style="background:#c62828;border-color:#c62828;width:auto;margin:0;padding:.4rem .8rem" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/confirm-delete" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">Delete</button>
+    <button style="background:#c62828;border-color:#c62828;width:auto;margin:0;padding:.4rem .8rem" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/confirm-delete" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "DeleteLimitButton"}}</button>
     {{else}}<span></span>{{end}}
-    <button style="width:auto;margin:0;padding:.4rem 1.2rem" type="submit" onclick="this.closest('article').querySelector('form').requestSubmit()">Save</button>
+    <button style="width:auto;margin:0;padding:.4rem 1.2rem" type="submit" onclick="this.closest('article').querySelector('form').requestSubmit()">{{call .T "SaveButton"}}</button>
   </footer>
 {{end}}
 
 {{define "limit-confirm-delete"}}
   <header>
-    <h3>Delete limit</h3>
+    <h3>{{call .T "DeleteLimitHeading"}}</h3>
   </header>
-  <p>Remove limit for <strong>{{.PackageName}}</strong>?</p>
+  <p>{{call .T "RemoveLimitFor" (dict "App" .PackageName)}}</p>
   {{if .DelayedChanges}}
-  <p style="font-size:0.9rem">You have the 24-hour delay enabled. If you delete this limit, the change will apply immediately.</p>
-  <p style="font-size:0.85rem;color:#555">To confirm, type the following:</p>
-  <p style="font-size:0.85rem;background:var(--pico-code-background);padding:.5rem .75rem;border-radius:4px;user-select:all"><em>I'm not cheating, I really want this limit to be deleted</em></p>
-  <input type="text" id="delete-confirm-input-{{.ChildUUID}}" placeholder="Type the phrase above" oninput="var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');var normalize=function(s){return s.trim().toLowerCase().replace(/[', ]/g,'')};btn.disabled=normalize(this.value)!==normalize(`I'm not cheating, I really want this limit to be deleted`)" onkeydown="if(event.key==='Enter'){var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');if(!btn.disabled)btn.click()}">
+  <p style="font-size:0.9rem">{{call .T "DelayedActiveWarning"}}</p>
+  <p style="font-size:0.85rem;color:#555">{{call .T "TypeFollowing"}}</p>
+  <p style="font-size:0.85rem;background:var(--pico-code-background);padding:.5rem .75rem;border-radius:4px;user-select:all"><em>{{call .T "ConfirmPhrase"}}</em></p>
+  <input type="text" id="delete-confirm-input-{{.ChildUUID}}" placeholder="{{call .T "TypePhraseAbove"}}" oninput="var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');var normalize=function(s){return s.trim().toLowerCase().replace(/[', ]/g,'')};btn.disabled=normalize(this.value)!==normalize(`I'm not cheating, I really want this limit to be deleted`)" onkeydown="if(event.key==='Enter'){var btn=document.getElementById('delete-confirm-btn-{{.ChildUUID}}');if(!btn.disabled)btn.click()}">
   <footer style="display:flex;justify-content:space-between;align-items:center">
-    <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">Cancel</button>
-    <button id="delete-confirm-btn-{{.ChildUUID}}" disabled style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">Delete</button>
+    <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "Cancel"}}</button>
+    <button id="delete-confirm-btn-{{.ChildUUID}}" disabled style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">{{call .T "DeleteLimitButton"}}</button>
   </footer>
   {{else}}
   <footer style="display:flex;justify-content:space-between;align-items:center">
-    <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">Cancel</button>
-    <button style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">Confirm</button>
+    <button class="secondary" style="width:auto;margin:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "Cancel"}}</button>
+    <button style="background:#c62828;border-color:#c62828;width:auto;margin:0" hx-delete="/web/children/{{.ChildUUID}}/limits/{{.PackageName}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">{{call .T "ConfirmButton"}}</button>
   </footer>
   {{end}}
 {{end}}

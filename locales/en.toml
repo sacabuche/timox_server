@@ -1,0 +1,234 @@
+[LoginHeading]
+other = """Timox Parent Login"""
+
+[EmailLabel]
+other = """Email"""
+
+[EmailPlaceholder]
+other = """you@example.com"""
+
+[SendLoginToken]
+other = """Send Login Token"""
+
+[NoAccount]
+other = """Don't have an account?"""
+
+[RegisterHere]
+other = """Register here"""
+
+[CreateAccount]
+other = """Create Parent Account"""
+
+[CreateAccountButton]
+other = """Create Account"""
+
+[AccountCreated]
+other = """Account created!"""
+
+[LoginHere]
+other = """Login here"""
+
+[TokenInstruction]
+other = """Check the server console and enter the token below:"""
+
+[TokenLabel]
+other = """Token"""
+
+[TokenPlaceholder]
+other = """ABCDEFGH"""
+
+[LoginButton]
+other = """Login"""
+
+[DashboardHeading]
+other = """Timox Parent"""
+
+[LogoutButton]
+other = """Logout"""
+
+[AddChild]
+other = """Add Child"""
+
+[ChildNameLabel]
+other = """Name"""
+
+[ChildNamePlaceholder]
+other = """Child name"""
+
+[NoChildrenYet]
+other = """No children yet."""
+
+[Back]
+other = """← Back"""
+
+[ChildReady]
+other = """{{.Name}} is ready!"""
+
+[TokenEnterInstruction]
+other = """Enter this token in the Timox app on the child's phone:"""
+
+[Copy]
+other = """Copy"""
+
+[Copied]
+other = """Copied!"""
+
+[ExpiresIn]
+other = """Expires in {{.Duration}}."""
+
+[GoToChildPage]
+other = """Go to Child Page"""
+
+[TokenExpired]
+other = """Token expired"""
+
+[TokenExpiredFor]
+other = """The token for {{.Name}} has expired."""
+
+[GenerateNewToken]
+other = """Generate New Token"""
+
+[SettingsHeading]
+other = """Settings — {{.Name}}"""
+
+[LoginTokenSection]
+other = """Login Token"""
+
+[LoginTokenHelp]
+other = """Generate a token to link a new device."""
+
+[GenerateToken]
+other = """Generate Token"""
+
+[DelayedChangesSection]
+other = """Delayed Changes"""
+
+[DelayedChangesHelp1]
+other = """When enabled, increases to app time limits take effect after 24 hours. Decreases, blocks, and limit removals always apply immediately."""
+
+[DelayedChangesHelp2]
+other = """Disabling this setting also takes 24 hours to apply, giving your child advance notice of the change."""
+
+[DelayedChangesHelp3]
+other = """Tip: Try not to set limits on everything; focus on the apps that genuinely need boundaries."""
+
+[DelayedChangesCheckbox]
+other = """Enable delayed changes (24h delay on limit increases)"""
+
+[DelayedChangesDisableNotice]
+other = """Scheduled to disable on {{.Date}}. Re-enable to cancel."""
+
+[DeleteChild]
+other = """Delete Child"""
+
+[DeleteChildTitle]
+other = """Delete {{.Name}}"""
+
+[DeleteChildConfirm]
+other = """Permanently delete all data for {{.Name}}?"""
+
+[DeleteChildTypeInstruction]
+other = """Type {{.Name}} to confirm"""
+
+[Cancel]
+other = """Cancel"""
+
+[Delete]
+other = """DELETE"""
+
+[TokenExpiresAt]
+other = """Expires at {{.Time}}"""
+
+[StaleReportWarning]
+other = """No reports in 24h. Check child's device."""
+
+[NewToken]
+other = """New token"""
+
+[LoadingApps]
+other = """Loading apps..."""
+
+[TotalToday]
+other = """Total today:"""
+
+[AppColumnHeader]
+other = """App"""
+
+[UsedTodayColumnHeader]
+other = """Used today"""
+
+[LimitColumnHeader]
+other = """Limit"""
+
+[StatusColumnHeader]
+other = """Status"""
+
+[OverLimit]
+other = """Over"""
+
+[Blocked]
+other = """Blocked"""
+
+[NoLimit]
+other = """None"""
+
+[PendingIncrease]
+other = """→ {{.Limit}} ({{.In}})"""
+
+[EditButton]
+other = """Edit"""
+
+[SetButton]
+other = """Set"""
+
+[NoAppsTracked]
+other = """No apps tracked yet."""
+
+[BlockAppEntirely]
+other = """Block app entirely"""
+
+[DailyLimitLabel]
+other = """Daily limit (minutes)"""
+
+[DeleteLimitButton]
+other = """Delete"""
+
+[SaveButton]
+other = """Save"""
+
+[DeleteLimitHeading]
+other = """Delete limit"""
+
+[RemoveLimitFor]
+other = """Remove limit for {{.App}}?"""
+
+[DelayedActiveWarning]
+other = """You have the 24-hour delay enabled. If you delete this limit, the change will apply immediately."""
+
+[TypeFollowing]
+other = """To confirm, type the following:"""
+
+[ConfirmPhrase]
+other = """I'm not cheating, I really want this limit to be deleted"""
+
+[TypePhraseAbove]
+other = """Type the phrase above"""
+
+[ConfirmButton]
+other = """Confirm"""
+
+[DelayedChangesOn]
+other = """Delayed changes is on — increases will take 24h to apply."""
+
+[PendingIncreaseNotice]
+other = """Pending increase to {{.Limit}} min (applies {{.Date}})"""
+
+[LangEN]
+other = """EN"""
+
+[LangES]
+other = """ES"""
+
+[LangFR]
+other = """FR"""
+

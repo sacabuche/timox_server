@@ -77,7 +77,7 @@ func (wh *WebHandler) getChildApps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	applyPendingLimits(wh.DB, childUUID)
-	wh.renderApps(w, childUUID)
+	wh.renderApps(w, r, childUUID)
 }
 
 func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,7 @@ func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
 		data["PendingAppliesAt"] = pendingAppliesAt.Format("Jan 2, 15:04")
 	}
 
-	renderPartial(w, "limit-edit-modal", data)
+	renderPartial(w, r, "limit-edit-modal", data)
 }
 
 func (wh *WebHandler) confirmDeleteChildLimit(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +136,7 @@ func (wh *WebHandler) confirmDeleteChildLimit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	renderPartial(w, "limit-confirm-delete", map[string]interface{}{
+	renderPartial(w, r, "limit-confirm-delete", map[string]interface{}{
 		"ChildUUID":      childUUID,
 		"PackageName":    packageName,
 		"DelayedChanges": isDelayedChangesEnabled(wh.DB, childUUID),
@@ -211,7 +211,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	applyPendingLimits(wh.DB, childUUID)
-	wh.renderApps(w, childUUID)
+	wh.renderApps(w, r, childUUID)
 }
 
 func (wh *WebHandler) deleteChildLimit(w http.ResponseWriter, r *http.Request) {
@@ -227,10 +227,10 @@ func (wh *WebHandler) deleteChildLimit(w http.ResponseWriter, r *http.Request) {
 	// Removing a limit is immediate — also clear any pending
 	wh.DB.Exec("DELETE FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
 	wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
-	wh.renderApps(w, childUUID)
+	wh.renderApps(w, r, childUUID)
 }
 
-func (wh *WebHandler) renderApps(w http.ResponseWriter, childUUID string) {
+func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUUID string) {
 	type AppRow struct {
 		PackageName       string
 		AppName           string
@@ -334,7 +334,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, childUUID string) {
 		totalUsage += a.TotalUsedMinutes
 	}
 
-	renderPartial(w, "child-apps", map[string]interface{}{
+	renderPartial(w, r, "child-apps", map[string]interface{}{
 		"ChildUUID":  childUUID,
 		"Limited":    limited,
 		"Blocked":    blocked,
