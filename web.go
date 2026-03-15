@@ -70,6 +70,30 @@ func isValidTime(s string) bool {
 	return err == nil
 }
 
+// scheduleUnlockTime returns end if the current time is within the [start, end]
+// blocking window (handles overnight ranges), otherwise returns "".
+func scheduleUnlockTime(start, end string) string {
+	s, err1 := time.Parse("15:04", start)
+	e, err2 := time.Parse("15:04", end)
+	if err1 != nil || err2 != nil {
+		return ""
+	}
+	now := time.Now()
+	nowMin := now.Hour()*60 + now.Minute()
+	startMin := s.Hour()*60 + s.Minute()
+	endMin := e.Hour()*60 + e.Minute()
+	var active bool
+	if startMin <= endMin {
+		active = nowMin >= startMin && nowMin <= endMin
+	} else {
+		active = nowMin >= startMin || nowMin <= endMin
+	}
+	if active {
+		return end
+	}
+	return ""
+}
+
 // scheduleBlockedDuration returns the duration the app is blocked given a
 // blocking window from start to end (both HH:MM), e.g. "20:00"–"23:00" → "3h".
 func scheduleBlockedDuration(start, end string) string {

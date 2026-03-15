@@ -28,9 +28,14 @@
 {{define "children-list"}}
   {{range .Children}}
     <a href="/web/children/{{.UUID}}" style="display:block;text-decoration:none">
-      <article style="margin-bottom:.5rem; padding: 1rem">
+      <article style="margin-bottom:.5rem; padding: 1rem{{if .UnlockTime}}; border-left: 3px solid var(--pico-color-orange-450){{end}}">
         <div style="display:flex; justify-content: space-between; align-items: center">
-          <strong>{{.Name}}</strong>
+          <div>
+            <strong>{{.Name}}</strong>
+            {{if .UnlockTime}}
+              <div style="font-size:.8rem; color: var(--pico-color-orange-450); margin-top:.15rem">⏸ Blocked · unlocks at {{.UnlockTime}}</div>
+            {{end}}
+          </div>
           <span>&rarr;</span>
         </div>
       </article>

@@ -332,27 +332,37 @@ func (wh *WebHandler) ownsChild(parentUUID, childUUID string) bool {
 	return exists
 }
 
-func (wh *WebHandler) listChildren(parentUUID string) []User {
+type ChildSummary struct {
+	UUID       string
+	Name       string
+	UnlockTime string // non-empty = currently in a global blocking window
+}
+
+func (wh *WebHandler) listChildren(parentUUID string) []ChildSummary {
 	rows, err := wh.DB.Query(
-		`SELECT u.uuid, u.name, u.role FROM users u
+		`SELECT u.uuid, u.name, u.blocking_start_time, u.blocking_end_time
+		 FROM users u
 		 INNER JOIN parent_children pc ON pc.child_uuid = u.uuid
 		 WHERE pc.parent_uuid = ?`, parentUUID,
 	)
 	if err != nil {
-		return []User{}
+		return []ChildSummary{}
 	}
 	defer rows.Close()
 
-	var list []User
+	var list []ChildSummary
 	for rows.Next() {
-		var u User
-		var name sql.NullString
-		rows.Scan(&u.UUID, &name, &u.Role)
-		u.Name = name.String
-		list = append(list, u)
+		var cs ChildSummary
+		var name, start, end sql.NullString
+		rows.Scan(&cs.UUID, &name, &start, &end)
+		cs.Name = name.String
+		if start.Valid && end.Valid {
+			cs.UnlockTime = scheduleUnlockTime(start.String, end.String)
+		}
+		list = append(list, cs)
 	}
 	if list == nil {
-		list = []User{}
+		list = []ChildSummary{}
 	}
 	return list
 }
