@@ -302,10 +302,21 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		ScheduleStart     string
 		ScheduleEnd       string
 		HasSchedule       bool
+		UnlockTime        string // non-empty = currently blocked by schedule
 	}
 
 	today := time.Now().Format("2006-01-02")
 	apps := map[string]*AppRow{}
+
+	// Global schedule
+	var globalStart, globalEnd sql.NullString
+	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&globalStart, &globalEnd)
+	globalScheduleStr := ""
+	globalUnlockTime := ""
+	if globalStart.Valid && globalEnd.Valid {
+		globalScheduleStr = globalStart.String + " – " + globalEnd.String
+		globalUnlockTime = scheduleUnlockTime(globalStart.String, globalEnd.String)
+	}
 
 	// Load limits
 	limRows, _ := wh.DB.Query("SELECT package_name, daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ?", childUUID)
@@ -387,6 +398,12 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		} else {
 			a.DisplayName = a.PackageName
 		}
+		// Resolve current blocking: global schedule takes priority, then per-app schedule
+		if globalUnlockTime != "" {
+			a.UnlockTime = globalUnlockTime
+		} else if a.HasSchedule {
+			a.UnlockTime = scheduleUnlockTime(a.ScheduleStart, a.ScheduleEnd)
+		}
 		if a.HasLimit && a.Blocked {
 			blocked = append(blocked, *a)
 		} else if a.HasLimit {
@@ -407,10 +424,12 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 	}
 
 	renderPartial(w, r, "child-apps", map[string]interface{}{
-		"ChildUUID":  childUUID,
-		"Limited":    limited,
-		"Blocked":    blocked,
-		"Other":      other,
-		"TotalUsage": totalUsage,
+		"ChildUUID":        childUUID,
+		"Limited":          limited,
+		"Blocked":          blocked,
+		"Other":            other,
+		"TotalUsage":       totalUsage,
+		"GlobalSchedule":   globalScheduleStr,
+		"GlobalUnlockTime": globalUnlockTime,
 	})
 }

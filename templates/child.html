@@ -24,6 +24,7 @@
   <dialog id="limit-dialog-{{.ChildUUID}}" onclick="if(event.target===this)this.close()">
     <article id="limit-dialog-content-{{.ChildUUID}}"></article>
   </dialog>
+  {{if .GlobalSchedule}}<p style="font-size:.9rem">{{call .T "GlobalScheduleLabel"}}: {{.GlobalSchedule}}{{if .GlobalUnlockTime}} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e53935;animation:glow-pulse 1.5s ease-in-out infinite;vertical-align:middle;margin-left:4px"></span>{{end}}</p>{{end}}
   {{if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   <div class="overflow-auto">
   {{if or .Limited .Blocked .Other}}
@@ -37,7 +38,8 @@
       <td>{{fmtMin .DailyLimitMinutes}}{{if .HasPending}} <small style="color:#e65100" title="Pending increase to {{fmtMin .PendingLimit}} min">&rarr;{{fmtMin .PendingLimit}} ({{.PendingIn}})</small>{{end}}</td>
       <td>{{if .HasSchedule}}<small>{{.ScheduleStart}}–{{.ScheduleEnd}}</small>{{else}}<small class="muted">—</small>{{end}}</td>
       <td>
-        {{if .OverLimit}}<span class="text-red">{{call $.T "OverLimit"}}</span>
+        {{if .UnlockTime}}<span style="color:var(--pico-color-orange-450)" title="Blocked · unlocks at {{.UnlockTime}}">🕐</span>
+        {{else if .OverLimit}}<span class="text-red">{{call $.T "OverLimit"}}</span>
         {{else}}<span class="text-green">{{fmtMin .Remaining}}</span>{{end}}
       </td>
       <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "EditButton"}}</button></td>
@@ -59,7 +61,10 @@
       <td>{{if .UsedToday}}{{fmtMin .TotalUsedMinutes}}{{else}}0{{end}}</td>
       <td>—</td>
       <td><small class="muted">—</small></td>
-      <td><small class="muted">{{call $.T "NoLimit"}}</small></td>
+      <td>
+        {{if .UnlockTime}}<span style="color:var(--pico-color-orange-450)" title="Blocked · unlocks at {{.UnlockTime}}">🕐</span>
+        {{else}}<small class="muted">{{call $.T "NoLimit"}}</small>{{end}}
+      </td>
       <td><button class="outline secondary" style="margin:0;padding:.2rem .4rem; font-size: 0.8rem" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "SetButton"}}</button></td>
     </tr>
     {{end}}

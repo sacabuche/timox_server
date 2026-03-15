@@ -271,3 +271,6 @@ other = """ES"""
 [LangFR]
 other = """FR"""
 
+
+[GlobalScheduleLabel]
+other = """Horario"""
