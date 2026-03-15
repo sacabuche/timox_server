@@ -209,7 +209,7 @@ other = """Tienes el retraso de 24 horas activado. Si eliminas este límite, el 
 other = """Para confirmar, escribe lo siguiente:"""
 
 [ConfirmPhrase]
-other = """I'm not cheating, I really want this limit to be deleted"""
+other = """No estoy haciendo trampa, realmente quiero eliminar este límite"""
 
 [TypePhraseAbove]
 other = """Escribe la frase anterior"""
@@ -222,6 +222,45 @@ other = """Los cambios diferidos están activados: los aumentos tardarán 24h en
 
 [PendingIncreaseNotice]
 other = """Aumento pendiente a {{.Limit}} min (se aplica el {{.Date}})"""
+
+[ScheduleColumnHeader]
+other = """Horario de bloqueo"""
+
+[ScheduleSection]
+other = """Horario de bloqueo (opcional)"""
+
+[ScheduleHelp]
+other = """La app estará bloqueada durante estas horas."""
+
+[ScheduleStart]
+other = """Desde"""
+
+[ScheduleEnd]
+other = """Hasta"""
+
+[RemoveSchedule]
+other = """Eliminar"""
+
+[GlobalScheduleSection]
+other = """Horario de bloqueo global"""
+
+[GlobalScheduleHelp]
+other = """Bloquea todas las apps fuera de estas horas. Los horarios por app pueden restringir aún más apps individuales."""
+
+[SaveButton2]
+other = """Guardar"""
+
+[ClearSchedule]
+other = """Borrar"""
+
+[BlockedPerDay]
+other = """bloqueado"""
+
+[BlockedPerDayPending]
+other = """bloqueado (pendiente)"""
+
+[ScheduleRemovalPending]
+other = """Eliminación de horario (pendiente)"""
 
 [LangEN]
 other = """EN"""

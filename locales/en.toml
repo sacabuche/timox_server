@@ -223,6 +223,45 @@ other = """Delayed changes is on — increases will take 24h to apply."""
 [PendingIncreaseNotice]
 other = """Pending increase to {{.Limit}} min (applies {{.Date}})"""
 
+[ScheduleColumnHeader]
+other = """Blocking Schedule"""
+
+[ScheduleSection]
+other = """Blocking Schedule (optional)"""
+
+[ScheduleHelp]
+other = """The app will be blocked during these hours."""
+
+[ScheduleStart]
+other = """From"""
+
+[ScheduleEnd]
+other = """Until"""
+
+[RemoveSchedule]
+other = """Remove"""
+
+[GlobalScheduleSection]
+other = """Global Blocking Schedule"""
+
+[GlobalScheduleHelp]
+other = """Block all apps outside of these hours. Per-app schedules can further restrict individual apps."""
+
+[SaveButton2]
+other = """Save"""
+
+[ClearSchedule]
+other = """Clear"""
+
+[BlockedPerDay]
+other = """blocked"""
+
+[BlockedPerDayPending]
+other = """blocked (pending)"""
+
+[ScheduleRemovalPending]
+other = """Schedule removal (pending)"""
+
 [LangEN]
 other = """EN"""
 

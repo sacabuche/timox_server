@@ -14,6 +14,14 @@
   </section>
 
   <section>
+    <h4>{{call .T "GlobalScheduleSection"}}</h4>
+    <p><small class="muted">{{call .T "GlobalScheduleHelp"}}</small></p>
+    <div id="global-schedule-{{.Child.UUID}}">
+      {{template "global-schedule-form" .}}
+    </div>
+  </section>
+
+  <section>
     <h4>{{call .T "DelayedChangesSection"}}</h4>
     <p><small class="muted">{{call .T "DelayedChangesHelp1"}}</small></p>
     <p><small class="muted">{{call .T "DelayedChangesHelp2"}}</small></p>
@@ -41,6 +49,50 @@
     </dialog>
     <button class="outline secondary" style="color: #c62828; border-color: #c62828" onclick="document.getElementById('delete-dialog-{{.Child.UUID}}').showModal()">{{call .T "DeleteChild"}}</button>
   </section>
+{{end}}
+
+{{define "global-schedule-form"}}
+  <form hx-post="/web/children/{{.Child.UUID}}/global-schedule" hx-target="#global-schedule-{{.Child.UUID}}" hx-swap="innerHTML">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <label style="flex:1;min-width:120px;margin:0">
+        <small>{{call .T "ScheduleStart"}}</small>
+        <input type="time" name="schedule_start" id="gs-start-{{.Child.UUID}}" value="{{.ScheduleStart}}" style="margin-top:0.25rem;margin-bottom:0"
+          oninput="gsUpdateBtn('{{.Child.UUID}}')">
+      </label>
+      <label style="flex:1;min-width:120px;margin:0">
+        <small>{{call .T "ScheduleEnd"}}</small>
+        <input type="time" name="schedule_end" id="gs-end-{{.Child.UUID}}" value="{{.ScheduleEnd}}" style="margin-top:0.25rem;margin-bottom:0"
+          oninput="gsUpdateBtn('{{.Child.UUID}}')">
+      </label>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0">
+        <button type="submit" id="gs-save-{{.Child.UUID}}" style="width:auto;margin:0" {{if not .ScheduleStart}}disabled{{end}}>{{call .T "SaveButton2"}}</button>
+        {{if .HasSchedule}}
+        <button type="button" class="outline secondary" style="width:auto;margin:0"
+          hx-post="/web/children/{{.Child.UUID}}/global-schedule"
+          hx-vals='{"schedule_start":"","schedule_end":""}'
+          hx-target="#global-schedule-{{.Child.UUID}}" hx-swap="innerHTML">{{call .T "ClearSchedule"}}</button>
+        {{end}}
+      </div>
+    </div>
+    <p style="margin-top:0.5rem;margin-bottom:0">
+      {{if .BlockedHours}}<small style="color:white">⏱ {{.BlockedHours}} {{call .T "BlockedPerDay"}}</small>{{end}}<span id="gs-preview-{{.Child.UUID}}"></span>
+    </p>
+  </form>
+  <script>
+
+    var gsPendingSuffix = "{{call .T "BlockedPerDayPending"}}";
+    function gsUpdateBtn(id) {
+      var s = document.getElementById('gs-start-' + id).value;
+      var e = document.getElementById('gs-end-' + id).value;
+      document.getElementById('gs-save-' + id).disabled = !(s && e);
+      var span = document.getElementById('gs-preview-' + id);
+      if (s && e) {
+        span.innerHTML = ' <small style="color:#e65100">→ ' + calcBlockedDuration(s, e) + ' ' + gsPendingSuffix + '</small>';
+      } else {
+        span.innerHTML = '';
+      }
+    }
+  </script>
 {{end}}
 
 {{define "delayed-changes-toggle"}}

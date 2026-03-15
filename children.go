@@ -12,9 +12,15 @@ import (
 
 
 
+type AppSchedule struct {
+	BlockingStartTime string `json:"blockingStartTime"` // HH:MM
+	BlockingEndTime   string `json:"blockingEndTime"`   // HH:MM
+}
+
 type AppLimit struct {
-	DailyLimitMinutes int  `json:"dailyLimitMinutes"`
-	Blocked           bool `json:"blocked"`
+	DailyLimitMinutes int           `json:"dailyLimitMinutes"`
+	Blocked           bool          `json:"blocked"`
+	Schedule          []AppSchedule `json:"schedule,omitempty"`
 }
 
 // --- Context keys ---
@@ -210,7 +216,11 @@ func (h *Handler) GetAppLimits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.DB.Query(
-		"SELECT package_name, daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ?",
+		`SELECT al.package_name, al.daily_limit_minutes, al.blocked,
+		        s.blocking_start_time, s.blocking_end_time
+		 FROM app_limits al
+		 LEFT JOIN app_schedules s ON s.user_uuid = al.user_uuid AND s.package_name = al.package_name
+		 WHERE al.user_uuid = ?`,
 		childUUID,
 	)
 	if err != nil {
@@ -223,9 +233,13 @@ func (h *Handler) GetAppLimits(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var pkg string
 		var limit AppLimit
-		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked); err != nil {
+		var startTime, endTime sql.NullString
+		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked, &startTime, &endTime); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if startTime.Valid && endTime.Valid {
+			limit.Schedule = []AppSchedule{{BlockingStartTime: startTime.String, BlockingEndTime: endTime.String}}
 		}
 		result[pkg] = limit
 	}

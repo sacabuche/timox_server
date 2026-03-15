@@ -107,16 +107,37 @@ func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
 		hasPending = true
 	}
 
+	// Check for existing schedule
+	var scheduleStart, scheduleEnd string
+	var hasSchedule bool
+	err = wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&scheduleStart, &scheduleEnd)
+	if err == nil {
+		hasSchedule = true
+	}
+
+	var appName string
+	wh.DB.QueryRow("SELECT COALESCE(app_name, '') FROM app_usage WHERE user_uuid = ? AND package_name = ? ORDER BY usage_date DESC LIMIT 1", childUUID, packageName).Scan(&appName)
+
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
+
+	displayName := appName
+	if displayName == "" {
+		displayName = packageName
+	}
 
 	data := map[string]interface{}{
 		"ChildUUID":         childUUID,
 		"PackageName":       packageName,
+		"DisplayName":       displayName,
 		"DailyLimitMinutes": dailyLimit,
 		"HasLimit":          hasLimit,
 		"Blocked":           blocked,
 		"DelayedChanges":    delayed,
 		"HasPending":        hasPending,
+		"ScheduleStart":        scheduleStart,
+		"ScheduleEnd":          scheduleEnd,
+		"HasSchedule":          hasSchedule,
+		"ScheduleBlockedHours": scheduleBlockedDuration(scheduleStart, scheduleEnd),
 	}
 	if hasPending {
 		data["PendingLimit"] = pendingLimit
@@ -210,6 +231,25 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Handle schedule
+	scheduleStart := strings.TrimSpace(r.FormValue("schedule_start"))
+	scheduleEnd := strings.TrimSpace(r.FormValue("schedule_end"))
+	removeSchedule := r.FormValue("remove_schedule") == "1"
+	if removeSchedule {
+		wh.DB.Exec("DELETE FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+	} else if scheduleStart != "" || scheduleEnd != "" {
+		if !isValidTime(scheduleStart) || !isValidTime(scheduleEnd) {
+			http.Error(w, "invalid schedule time format, use HH:MM", http.StatusBadRequest)
+			return
+		}
+		wh.DB.Exec(
+			`INSERT INTO app_schedules (user_uuid, package_name, blocking_start_time, blocking_end_time)
+			 VALUES (?, ?, ?, ?)
+			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET blocking_start_time = excluded.blocking_start_time, blocking_end_time = excluded.blocking_end_time`,
+			childUUID, packageName, scheduleStart, scheduleEnd,
+		)
+	}
+
 	applyPendingLimits(wh.DB, childUUID)
 	wh.renderApps(w, r, childUUID)
 }
@@ -230,6 +270,20 @@ func (wh *WebHandler) deleteChildLimit(w http.ResponseWriter, r *http.Request) {
 	wh.renderApps(w, r, childUUID)
 }
 
+func (wh *WebHandler) deleteChildSchedule(w http.ResponseWriter, r *http.Request) {
+	parentUUID := r.Context().Value(CtxUserUUID).(string)
+	childUUID := chi.URLParam(r, "childUUID")
+	packageName := chi.URLParam(r, "packageName")
+
+	if !wh.ownsChild(parentUUID, childUUID) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	wh.DB.Exec("DELETE FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+	wh.renderApps(w, r, childUUID)
+}
+
 func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUUID string) {
 	type AppRow struct {
 		PackageName       string
@@ -245,6 +299,9 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		PendingLimit      int
 		HasPending        bool
 		PendingIn         string
+		ScheduleStart     string
+		ScheduleEnd       string
+		HasSchedule       bool
 	}
 
 	today := time.Now().Format("2006-01-02")
@@ -284,6 +341,21 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 				a.PendingIn = "soon"
 			} else {
 				a.PendingIn = fmt.Sprintf("%dh", hours)
+			}
+		}
+	}
+
+	// Load schedules
+	scheduleRows, _ := wh.DB.Query("SELECT package_name, blocking_start_time, blocking_end_time FROM app_schedules WHERE user_uuid = ?", childUUID)
+	if scheduleRows != nil {
+		defer scheduleRows.Close()
+		for scheduleRows.Next() {
+			var pkg, start, end string
+			scheduleRows.Scan(&pkg, &start, &end)
+			if a, ok := apps[pkg]; ok {
+				a.ScheduleStart = start
+				a.ScheduleEnd = end
+				a.HasSchedule = true
 			}
 		}
 	}

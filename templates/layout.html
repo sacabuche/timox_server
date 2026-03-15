@@ -6,6 +6,17 @@
   <title>Timox Parent</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script>
+    function calcBlockedDuration(start, end) {
+      var sp = start.split(':'), ep = end.split(':');
+      var sm = parseInt(sp[0]) * 60 + parseInt(sp[1]);
+      var em = parseInt(ep[0]) * 60 + parseInt(ep[1]);
+      var blocked = em - sm;
+      if (blocked < 0) blocked += 1440;
+      var h = Math.floor(blocked / 60), m = blocked % 60;
+      return m === 0 ? h + 'h' : h + 'h ' + m + 'min';
+    }
+  </script>
   <style>
     .token-display{font-family:monospace;font-size:1.5rem;letter-spacing:.3rem;padding:.5rem 1rem;background:var(--pico-code-background-color);border-radius:4px;display:inline-block;max-width:100%;word-break:break-all}
     .text-red{color:#c62828}.text-green{color:#2e7d32}.text-orange{color:#ef6c00}

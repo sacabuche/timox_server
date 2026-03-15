@@ -339,8 +339,21 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 	// Apply any pending limits that are past due
 	applyPendingLimits(db, userUUID)
 
+	// Load global blocking schedule
+	var globalStart, globalEnd sql.NullString
+	db.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", userUUID).Scan(&globalStart, &globalEnd)
+
+	var globalSchedule []AppSchedule
+	if globalStart.Valid && globalEnd.Valid {
+		globalSchedule = []AppSchedule{{BlockingStartTime: globalStart.String, BlockingEndTime: globalEnd.String}}
+	}
+
 	rows, err := db.Query(
-		"SELECT package_name, daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ?",
+		`SELECT al.package_name, al.daily_limit_minutes, al.blocked,
+		        s.blocking_start_time, s.blocking_end_time
+		 FROM app_limits al
+		 LEFT JOIN app_schedules s ON s.user_uuid = al.user_uuid AND s.package_name = al.package_name
+		 WHERE al.user_uuid = ?`,
 		userUUID,
 	)
 	if err != nil {
@@ -349,19 +362,26 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	result := make(map[string]AppLimit)
+	limits := make(map[string]AppLimit)
 	for rows.Next() {
 		var pkg string
 		var limit AppLimit
-		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked); err != nil {
+		var startTime, endTime sql.NullString
+		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked, &startTime, &endTime); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		result[pkg] = limit
+		if startTime.Valid && endTime.Valid {
+			limit.Schedule = []AppSchedule{{BlockingStartTime: startTime.String, BlockingEndTime: endTime.String}}
+		}
+		limits[pkg] = limit
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"globalSchedule": globalSchedule,
+		"limits":         limits,
+	})
 }
 
 func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {

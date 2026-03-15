@@ -77,11 +77,54 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
 	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
 
+	var scheduleStart, scheduleEnd sql.NullString
+	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd)
+
+	hasSchedule := scheduleStart.Valid && scheduleEnd.Valid
 	renderPage(w, r, "child-settings-page", map[string]interface{}{
 		"Child":          child,
 		"DelayedChanges": delayed,
 		"DisableAt":      disableAt,
 		"Checked":        delayed && disableAt == nil,
+		"ScheduleStart":  scheduleStart.String,
+		"ScheduleEnd":    scheduleEnd.String,
+		"HasSchedule":    hasSchedule,
+		"BlockedHours":   scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
+	})
+}
+
+func (wh *WebHandler) saveChildGlobalSchedule(w http.ResponseWriter, r *http.Request) {
+	parentUUID := r.Context().Value(CtxUserUUID).(string)
+	childUUID := chi.URLParam(r, "childUUID")
+
+	if !wh.ownsChild(parentUUID, childUUID) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	start := strings.TrimSpace(r.FormValue("schedule_start"))
+	end := strings.TrimSpace(r.FormValue("schedule_end"))
+
+	if start != "" || end != "" {
+		if !isValidTime(start) || !isValidTime(end) {
+			http.Error(w, "invalid time format, use HH:MM", http.StatusBadRequest)
+			return
+		}
+		wh.DB.Exec("UPDATE users SET blocking_start_time = ?, blocking_end_time = ? WHERE uuid = ?", start, end, childUUID)
+	} else {
+		wh.DB.Exec("UPDATE users SET blocking_start_time = NULL, blocking_end_time = NULL WHERE uuid = ?", childUUID)
+	}
+
+	var scheduleStart, scheduleEnd sql.NullString
+	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd)
+
+	hasSchedule := scheduleStart.Valid && scheduleEnd.Valid
+	renderPartial(w, r, "global-schedule-form", map[string]interface{}{
+		"Child":         User{UUID: childUUID},
+		"ScheduleStart": scheduleStart.String,
+		"ScheduleEnd":   scheduleEnd.String,
+		"HasSchedule":   hasSchedule,
+		"BlockedHours":  scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
 	})
 }
 

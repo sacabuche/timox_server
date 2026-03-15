@@ -209,7 +209,7 @@ other = """Vous avez le délai de 24 heures activé. Si vous supprimez cette lim
 other = """Pour confirmer, tapez ce qui suit :"""
 
 [ConfirmPhrase]
-other = """I'm not cheating, I really want this limit to be deleted"""
+other = """Je ne triche pas, je veux vraiment supprimer cette limite"""
 
 [TypePhraseAbove]
 other = """Tapez la phrase ci-dessus"""
@@ -222,6 +222,45 @@ other = """Les modifications différées sont activées — les augmentations pr
 
 [PendingIncreaseNotice]
 other = """Augmentation en attente à {{.Limit}} min (applicable le {{.Date}})"""
+
+[ScheduleColumnHeader]
+other = """Horaire de blocage"""
+
+[ScheduleSection]
+other = """Horaire de blocage (optionnel)"""
+
+[ScheduleHelp]
+other = """L'app sera bloquée pendant ces heures."""
+
+[ScheduleStart]
+other = """De"""
+
+[ScheduleEnd]
+other = """À"""
+
+[RemoveSchedule]
+other = """Supprimer"""
+
+[GlobalScheduleSection]
+other = """Horaire de blocage global"""
+
+[GlobalScheduleHelp]
+other = """Bloquer toutes les apps en dehors de ces heures. Les horaires par app peuvent restreindre davantage les apps individuelles."""
+
+[SaveButton2]
+other = """Enregistrer"""
+
+[ClearSchedule]
+other = """Effacer"""
+
+[BlockedPerDay]
+other = """bloqué"""
+
+[BlockedPerDayPending]
+other = """bloqué (en attente)"""
+
+[ScheduleRemovalPending]
+other = """Suppression du horaire (en attente)"""
 
 [LangEN]
 other = """EN"""
