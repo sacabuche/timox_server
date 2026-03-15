@@ -316,13 +316,20 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		globalUnlockTime = scheduleUnlockTime(globalStart.String, globalEnd.String)
 	}
 
-	// Load limits
-	limRows, _ := wh.DB.Query("SELECT package_name, daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ?", childUUID)
+	// Load limits, also fetch the most recent known app name from usage history
+	limRows, _ := wh.DB.Query(`
+		SELECT al.package_name, al.daily_limit_minutes, al.block_type,
+		       (SELECT app_name FROM app_usage
+		        WHERE user_uuid = al.user_uuid AND package_name = al.package_name AND app_name IS NOT NULL
+		        ORDER BY usage_date DESC LIMIT 1)
+		FROM app_limits al WHERE al.user_uuid = ?`, childUUID)
 	if limRows != nil {
 		defer limRows.Close()
 		for limRows.Next() {
 			a := &AppRow{}
-			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.BlockType)
+			var appName sql.NullString
+			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.BlockType, &appName)
+			a.AppName = appName.String
 			a.HasLimit = true
 			apps[a.PackageName] = a
 		}
