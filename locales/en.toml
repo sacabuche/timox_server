@@ -274,3 +274,30 @@ other = """FR"""
 
 [GlobalScheduleLabel]
 other = """Schedule"""
+
+[BlockTypeLabel]
+other = """Behavior"""
+
+[BlockTypeNormal]
+other = """Normal (enforce daily limit)"""
+
+[BlockTypeBlocked]
+other = """Always blocked"""
+
+[BlockTypeGlobalExempt]
+other = """Exempt from global schedule"""
+
+[BlockTypeUnrestricted]
+other = """Never blocked"""
+
+[BlockTypeNormalDesc]
+other = """The app follows its daily limit and is blocked during the global schedule. Example: 60 min/day, unavailable 21:00–07:00."""
+
+[BlockTypeBlockedDesc]
+other = """The app is always blocked, no matter the time or usage. Use this to permanently restrict an app."""
+
+[BlockTypeGlobalExemptDesc]
+other = """The global schedule does not apply to this app — it can be opened at any time. The daily limit still applies. Example: useful for a phone or alarm app during rest hours."""
+
+[BlockTypeUnrestrictedDesc]
+other = """The app is never blocked and has no limits. Use this for trusted apps that should always be accessible."""

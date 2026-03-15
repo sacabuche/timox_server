@@ -35,10 +35,22 @@
     <tr>
       <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.DisplayName}}</td>
       <td>{{if .UsedToday}}{{fmtMin .TotalUsedMinutes}}{{else}}0{{end}}</td>
-      <td>{{fmtMin .DailyLimitMinutes}}{{if .HasPending}} <small style="color:#e65100" title="Pending increase to {{fmtMin .PendingLimit}} min">&rarr;{{fmtMin .PendingLimit}} ({{.PendingIn}})</small>{{end}}</td>
-      <td>{{if .HasSchedule}}<small>{{.ScheduleStart}}–{{.ScheduleEnd}}</small>{{else}}<small class="muted">—</small>{{end}}</td>
       <td>
-        {{if .UnlockTime}}<span style="color:var(--pico-color-orange-450)" title="Blocked · unlocks at {{.UnlockTime}}">🕐</span>
+        {{if eq .BlockType 3}}
+          <small class="muted">{{call $.T "BlockTypeUnrestricted"}}</small>
+        {{else}}
+          {{fmtMin .DailyLimitMinutes}}{{if .HasPending}} <small style="color:#e65100" title="Pending increase to {{fmtMin .PendingLimit}} min">&rarr;{{fmtMin .PendingLimit}} ({{.PendingIn}})</small>{{end}}
+          {{if eq .BlockType 2}}<br><small style="color:#0288d1">{{call $.T "BlockTypeGlobalExempt"}}</small>{{end}}
+        {{end}}
+      </td>
+      <td>
+        {{if eq .BlockType 3}}<small class="muted">—</small>
+        {{else if .HasSchedule}}<small>{{.ScheduleStart}}–{{.ScheduleEnd}}</small>
+        {{else}}<small class="muted">—</small>{{end}}
+      </td>
+      <td>
+        {{if eq .BlockType 3}}<small class="muted">—</small>
+        {{else if .UnlockTime}}<span style="color:var(--pico-color-orange-450)" title="Blocked · unlocks at {{.UnlockTime}}">🕐</span>
         {{else if .OverLimit}}<span class="text-red">{{call $.T "OverLimit"}}</span>
         {{else}}<span class="text-green">{{fmtMin .Remaining}}</span>{{end}}
       </td>
@@ -89,11 +101,19 @@
   {{end}}
   <form hx-post="/web/children/{{.ChildUUID}}/limits" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">
     <input type="hidden" name="package_name" value="{{.PackageName}}">
-    <label style="color:var(--pico-muted-color)"><input type="checkbox" name="blocked" id="blocked-checkbox" {{if .Blocked}}checked{{end}} disabled> {{call .T "BlockAppEntirely"}}</label>
-    <div id="limit-fields">
+    <label for="block-type-{{.ChildUUID}}">{{call .T "BlockTypeLabel"}}</label>
+    <select name="block_type" id="block-type-{{.ChildUUID}}" onchange="leOnBlockTypeChange('{{.ChildUUID}}',this.value)">
+      <option value="0" {{if eq .BlockType 0}}selected{{end}}>{{call .T "BlockTypeNormal"}}</option>
+      <option value="1" {{if eq .BlockType 1}}selected{{end}}>{{call .T "BlockTypeBlocked"}}</option>
+      <option value="2" {{if eq .BlockType 2}}selected{{end}}>{{call .T "BlockTypeGlobalExempt"}}</option>
+      <option value="3" {{if eq .BlockType 3}}selected{{end}}>{{call .T "BlockTypeUnrestricted"}}</option>
+    </select>
+    <p id="le-block-desc-{{.ChildUUID}}" style="font-size:0.8rem;color:#888;margin:0.2rem 0 0.75rem"></p>
+    <div id="limit-fields-{{.ChildUUID}}" {{if or (eq .BlockType 1) (eq .BlockType 3)}}style="display:none"{{end}}>
       <label for="daily_limit_minutes">{{call .T "DailyLimitLabel"}}</label>
-      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" required autofocus>
+      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" autofocus>
     </div>
+    <div id="schedule-section-{{.ChildUUID}}" {{if or (eq .BlockType 1) (eq .BlockType 3)}}style="display:none"{{end}}>
     <hr style="margin:0.75rem 0">
     <details {{if .HasSchedule}}open{{end}}>
       <summary style="font-size:0.9rem;cursor:pointer">{{call .T "ScheduleSection"}}</summary>
@@ -122,6 +142,7 @@
         {{if .ScheduleBlockedHours}}<small style="color:white">⏱ {{.ScheduleBlockedHours}} {{call .T "BlockedPerDay"}}</small>{{end}}<span id="le-sched-pending-{{.ChildUUID}}"></span>
       </p>
     </details>
+    </div>
   </form>
   <footer style="display:flex;justify-content:space-between;align-items:center">
     {{if .HasLimit}}
@@ -133,6 +154,21 @@
 
     var lePendingSuffix = "{{call .T "BlockedPerDayPending"}}";
     var leRemovalPending = "{{call .T "ScheduleRemovalPending"}}";
+    var leBlockTypeDesc = {
+      '0': '{{call .T "BlockTypeNormalDesc"}}',
+      '1': '{{call .T "BlockTypeBlockedDesc"}}',
+      '2': '{{call .T "BlockTypeGlobalExemptDesc"}}',
+      '3': '{{call .T "BlockTypeUnrestrictedDesc"}}'
+    };
+    function leOnBlockTypeChange(id, val) {
+      var hide = val === '1' || val === '3';
+      document.getElementById('limit-fields-' + id).style.display = hide ? 'none' : '';
+      document.getElementById('schedule-section-' + id).style.display = hide ? 'none' : '';
+      document.getElementById('le-block-desc-' + id).textContent = leBlockTypeDesc[val] || '';
+      var limitInput = document.getElementById('daily_limit_minutes');
+      if (limitInput) limitInput.disabled = hide;
+    }
+    leOnBlockTypeChange('{{.ChildUUID}}', '{{.BlockType}}');
     function leUpdateSave(id) {
       var s = document.getElementById('sched-start-' + id).value;
       var e = document.getElementById('sched-end-' + id).value;

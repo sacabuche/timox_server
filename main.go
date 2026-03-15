@@ -349,7 +349,7 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.Query(
-		`SELECT al.package_name, al.daily_limit_minutes, al.blocked,
+		`SELECT al.package_name, al.daily_limit_minutes, al.block_type,
 		        s.blocking_start_time, s.blocking_end_time
 		 FROM app_limits al
 		 LEFT JOIN app_schedules s ON s.user_uuid = al.user_uuid AND s.package_name = al.package_name
@@ -367,7 +367,7 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 		var pkg string
 		var limit AppLimit
 		var startTime, endTime sql.NullString
-		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked, &startTime, &endTime); err != nil {
+		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.BlockType, &startTime, &endTime); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

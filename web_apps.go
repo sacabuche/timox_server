@@ -20,7 +20,7 @@ import (
 func applyPendingLimits(db *sql.DB, childUUID string) {
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 	rows, err := db.Query(
-		"SELECT package_name, daily_limit_minutes, blocked FROM pending_app_limits WHERE user_uuid = ? AND applies_at <= ?",
+		"SELECT package_name, daily_limit_minutes, block_type FROM pending_app_limits WHERE user_uuid = ? AND applies_at <= ?",
 		childUUID, now,
 	)
 	if err != nil || rows == nil {
@@ -30,15 +30,14 @@ func applyPendingLimits(db *sql.DB, childUUID string) {
 
 	for rows.Next() {
 		var pkg string
-		var limit int
-		var blocked bool
-		rows.Scan(&pkg, &limit, &blocked)
+		var limit, blockType int
+		rows.Scan(&pkg, &limit, &blockType)
 
 		db.Exec(
-			`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, blocked)
+			`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, block_type)
 			 VALUES (?, ?, ?, ?)
-			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, blocked = excluded.blocked`,
-			childUUID, pkg, limit, blocked,
+			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type`,
+			childUUID, pkg, limit, blockType,
 		)
 	}
 
@@ -90,10 +89,9 @@ func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dailyLimit int
-	var blocked bool
+	var dailyLimit, blockType int
 	var hasLimit bool
-	err := wh.DB.QueryRow("SELECT daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&dailyLimit, &blocked)
+	err := wh.DB.QueryRow("SELECT daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&dailyLimit, &blockType)
 	if err == nil {
 		hasLimit = true
 	}
@@ -131,7 +129,7 @@ func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
 		"DisplayName":       displayName,
 		"DailyLimitMinutes": dailyLimit,
 		"HasLimit":          hasLimit,
-		"Blocked":           blocked,
+		"BlockType":         blockType,
 		"DelayedChanges":    delayed,
 		"HasPending":        hasPending,
 		"ScheduleStart":        scheduleStart,
@@ -175,23 +173,24 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 
 	packageName := strings.TrimSpace(r.FormValue("package_name"))
 	dailyLimit := r.FormValue("daily_limit_minutes")
-	blocked := r.FormValue("blocked") == "on"
+	blockTypeStr := r.FormValue("block_type")
+	blockType, _ := strconv.Atoi(blockTypeStr)
 
-	if packageName == "" || (!blocked && dailyLimit == "") {
+	if packageName == "" || (blockType != BlockTypeBlocked && blockType != BlockTypeUnrestricted && dailyLimit == "") {
 		http.Error(w, "package_name and daily_limit_minutes required", http.StatusBadRequest)
 		return
 	}
 
-	if blocked {
-		// Blocking is always immediate — also clear any pending increase
+	if blockType == BlockTypeBlocked || blockType == BlockTypeUnrestricted {
+		// block_type changes are always immediate — clear any pending increase
 		if dailyLimit == "" {
 			dailyLimit = "0"
 		}
 		wh.DB.Exec(
-			`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, blocked)
-			 VALUES (?, ?, ?, true)
-			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, blocked = true`,
-			childUUID, packageName, dailyLimit,
+			`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, block_type)
+			 VALUES (?, ?, ?, ?)
+			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type`,
+			childUUID, packageName, dailyLimit, blockType,
 		)
 		wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
 	} else {
@@ -199,32 +198,31 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 
 		// Check if delayed changes is enabled and this is an increase
 		delayed := isDelayedChangesEnabled(wh.DB, childUUID)
-		var currentLimit int
-		var currentBlocked bool
+		var currentLimit, currentBlockType int
 		var hasExisting bool
-		err := wh.DB.QueryRow("SELECT daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&currentLimit, &currentBlocked)
+		err := wh.DB.QueryRow("SELECT daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&currentLimit, &currentBlockType)
 		if err == nil {
 			hasExisting = true
 		}
 
-		isIncrease := hasExisting && !currentBlocked && newLimit > currentLimit
+		isIncrease := hasExisting && currentBlockType == BlockTypeNormal && newLimit > currentLimit
 
 		if delayed && isIncrease {
 			// Store as pending with 24h delay
 			appliesAt := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02 15:04:05")
 			wh.DB.Exec(
-				`INSERT INTO pending_app_limits (user_uuid, package_name, daily_limit_minutes, blocked, applies_at)
-				 VALUES (?, ?, ?, false, ?)
-				 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, blocked = excluded.blocked, applies_at = excluded.applies_at`,
-				childUUID, packageName, newLimit, appliesAt,
+				`INSERT INTO pending_app_limits (user_uuid, package_name, daily_limit_minutes, block_type, applies_at)
+				 VALUES (?, ?, ?, ?, ?)
+				 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type, applies_at = excluded.applies_at`,
+				childUUID, packageName, newLimit, blockType, appliesAt,
 			)
 		} else {
 			// Apply immediately (decrease, new limit, or delayed changes off)
 			wh.DB.Exec(
-				`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, blocked)
-				 VALUES (?, ?, ?, false)
-				 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, blocked = false`,
-				childUUID, packageName, dailyLimit,
+				`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, block_type)
+				 VALUES (?, ?, ?, ?)
+				 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type`,
+				childUUID, packageName, dailyLimit, blockType,
 			)
 			// Clear any pending limit for this app
 			wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
@@ -293,7 +291,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		UsedToday         bool
 		DailyLimitMinutes int
 		HasLimit          bool
-		Blocked           bool
+		BlockType         int
 		Remaining         int
 		OverLimit         bool
 		PendingLimit      int
@@ -319,12 +317,12 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 	}
 
 	// Load limits
-	limRows, _ := wh.DB.Query("SELECT package_name, daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ?", childUUID)
+	limRows, _ := wh.DB.Query("SELECT package_name, daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ?", childUUID)
 	if limRows != nil {
 		defer limRows.Close()
 		for limRows.Next() {
 			a := &AppRow{}
-			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.Blocked)
+			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.BlockType)
 			a.HasLimit = true
 			apps[a.PackageName] = a
 		}
@@ -398,17 +396,21 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		} else {
 			a.DisplayName = a.PackageName
 		}
-		// Resolve current blocking: global schedule takes priority, then per-app schedule
-		if globalUnlockTime != "" {
+		// Resolve schedule blocking — unrestricted is never blocked; global_exempt ignores global schedule only
+		if a.HasLimit && a.BlockType == BlockTypeUnrestricted {
+			// never blocked by any schedule
+		} else if globalUnlockTime != "" && !(a.HasLimit && a.BlockType == BlockTypeGlobalExempt) {
 			a.UnlockTime = globalUnlockTime
 		} else if a.HasSchedule {
 			a.UnlockTime = scheduleUnlockTime(a.ScheduleStart, a.ScheduleEnd)
 		}
-		if a.HasLimit && a.Blocked {
+		if a.HasLimit && a.BlockType == BlockTypeBlocked {
 			blocked = append(blocked, *a)
 		} else if a.HasLimit {
 			a.Remaining = a.DailyLimitMinutes - a.TotalUsedMinutes
-			a.OverLimit = a.Remaining <= 0
+			if a.BlockType != BlockTypeUnrestricted {
+				a.OverLimit = a.Remaining <= 0
+			}
 			limited = append(limited, *a)
 		} else {
 			other = append(other, *a)

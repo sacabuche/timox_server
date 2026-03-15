@@ -17,9 +17,17 @@ type AppSchedule struct {
 	BlockingEndTime   string `json:"blockingEndTime"`   // HH:MM
 }
 
+// Block type values for AppLimit.BlockType / app_limits.block_type.
+const (
+	BlockTypeNormal       = 0 // daily limit + global schedule apply
+	BlockTypeBlocked      = 1 // always blocked, no exceptions
+	BlockTypeGlobalExempt = 2 // exempt from global schedule; per-app limit still applies
+	BlockTypeUnrestricted = 3 // never blocked, all limits ignored
+)
+
 type AppLimit struct {
 	DailyLimitMinutes int           `json:"dailyLimitMinutes"`
-	Blocked           bool          `json:"blocked"`
+	BlockType         int           `json:"blockType"`
 	Schedule          []AppSchedule `json:"schedule,omitempty"`
 }
 
@@ -216,7 +224,7 @@ func (h *Handler) GetAppLimits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.DB.Query(
-		`SELECT al.package_name, al.daily_limit_minutes, al.blocked,
+		`SELECT al.package_name, al.daily_limit_minutes, al.block_type,
 		        s.blocking_start_time, s.blocking_end_time
 		 FROM app_limits al
 		 LEFT JOIN app_schedules s ON s.user_uuid = al.user_uuid AND s.package_name = al.package_name
@@ -234,7 +242,7 @@ func (h *Handler) GetAppLimits(w http.ResponseWriter, r *http.Request) {
 		var pkg string
 		var limit AppLimit
 		var startTime, endTime sql.NullString
-		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.Blocked, &startTime, &endTime); err != nil {
+		if err := rows.Scan(&pkg, &limit.DailyLimitMinutes, &limit.BlockType, &startTime, &endTime); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -273,22 +281,21 @@ func (h *Handler) UpdateAppLimit(w http.ResponseWriter, r *http.Request) {
 
 	// Check if delayed changes is enabled and this is an increase
 	delayed := isDelayedChangesEnabled(h.DB, childUUID)
-	var currentLimit int
-	var currentBlocked bool
+	var currentLimit, currentBlockType int
 	var hasExisting bool
-	err = h.DB.QueryRow("SELECT daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&currentLimit, &currentBlocked)
+	err = h.DB.QueryRow("SELECT daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&currentLimit, &currentBlockType)
 	if err == nil {
 		hasExisting = true
 	}
 
-	isIncrease := hasExisting && !currentBlocked && body.DailyLimitMinutes > currentLimit
+	isIncrease := hasExisting && currentBlockType == BlockTypeNormal && body.DailyLimitMinutes > currentLimit
 
 	if delayed && isIncrease {
 		appliesAt := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02 15:04:05")
 		_, err = h.DB.Exec(
-			`INSERT INTO pending_app_limits (user_uuid, package_name, daily_limit_minutes, blocked, applies_at)
-			 VALUES (?, ?, ?, false, ?)
-			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, blocked = excluded.blocked, applies_at = excluded.applies_at`,
+			`INSERT INTO pending_app_limits (user_uuid, package_name, daily_limit_minutes, block_type, applies_at)
+			 VALUES (?, ?, ?, 0, ?)
+			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type, applies_at = excluded.applies_at`,
 			childUUID, packageName, body.DailyLimitMinutes, appliesAt,
 		)
 		if err != nil {
@@ -299,7 +306,7 @@ func (h *Handler) UpdateAppLimit(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"dailyLimitMinutes": currentLimit,
-			"blocked":           false,
+			"blockType":         currentBlockType,
 			"pending":           true,
 			"pendingLimit":      body.DailyLimitMinutes,
 			"appliesAt":         appliesAt,
@@ -308,8 +315,8 @@ func (h *Handler) UpdateAppLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.DB.Exec(
-		`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, blocked)
-		 VALUES (?, ?, ?, false)
+		`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, block_type)
+		 VALUES (?, ?, ?, 0)
 		 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes`,
 		childUUID, packageName, body.DailyLimitMinutes,
 	)
@@ -322,9 +329,9 @@ func (h *Handler) UpdateAppLimit(w http.ResponseWriter, r *http.Request) {
 
 	var limit AppLimit
 	err = h.DB.QueryRow(
-		"SELECT daily_limit_minutes, blocked FROM app_limits WHERE user_uuid = ? AND package_name = ?",
+		"SELECT daily_limit_minutes, block_type FROM app_limits WHERE user_uuid = ? AND package_name = ?",
 		childUUID, packageName,
-	).Scan(&limit.DailyLimitMinutes, &limit.Blocked)
+	).Scan(&limit.DailyLimitMinutes, &limit.BlockType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -274,3 +274,30 @@ other = """FR"""
 
 [GlobalScheduleLabel]
 other = """Horaire"""
+
+[BlockTypeLabel]
+other = """Comportement"""
+
+[BlockTypeNormal]
+other = """Normal (respecter la limite quotidienne)"""
+
+[BlockTypeBlocked]
+other = """Toujours bloquée"""
+
+[BlockTypeGlobalExempt]
+other = """Exclue de l'horaire global"""
+
+[BlockTypeUnrestricted]
+other = """Jamais bloquée"""
+
+[BlockTypeNormalDesc]
+other = """L'app respecte sa limite quotidienne et est bloquée pendant la plage horaire globale. Exemple : 60 min/jour, inaccessible de 21h à 07h."""
+
+[BlockTypeBlockedDesc]
+other = """L'app est toujours bloquée, quelle que soit l'heure ou l'utilisation. À utiliser pour restreindre définitivement une app."""
+
+[BlockTypeGlobalExemptDesc]
+other = """La plage horaire globale ne s'applique pas à cette app — elle reste accessible à tout moment. La limite quotidienne s'applique toujours. Exemple : utile pour le téléphone ou une alarme pendant les heures de repos."""
+
+[BlockTypeUnrestrictedDesc]
+other = """L'app n'est jamais bloquée et n'a aucune limite. À utiliser pour les apps de confiance qui doivent toujours rester accessibles."""
