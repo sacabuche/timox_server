@@ -14,7 +14,7 @@
   {{end}}
 
   <section>
-    <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, every 30s [!document.querySelector('dialog[open]')]" hx-swap="innerHTML">
       <p aria-busy="true">{{call .T "LoadingApps"}}</p>
     </div>
   </section>
@@ -84,10 +84,10 @@
   {{end}}
   <form hx-post="/web/children/{{.ChildUUID}}/limits" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').close()">
     <input type="hidden" name="package_name" value="{{.PackageName}}">
-    <label><input type="checkbox" name="blocked" id="blocked-checkbox" {{if .Blocked}}checked{{end}} onchange="var lf=this.closest('form').querySelector('#limit-fields');var inp=lf.querySelector('input');if(this.checked){lf.style.display='none';inp.disabled=true}else{lf.style.display='block';inp.disabled=false}"> {{call .T "BlockAppEntirely"}}</label>
-    <div id="limit-fields" style="{{if .Blocked}}display:none{{end}}">
+    <label style="color:var(--pico-muted-color)"><input type="checkbox" name="blocked" id="blocked-checkbox" {{if .Blocked}}checked{{end}} disabled> {{call .T "BlockAppEntirely"}}</label>
+    <div id="limit-fields">
       <label for="daily_limit_minutes">{{call .T "DailyLimitLabel"}}</label>
-      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" {{if .Blocked}}disabled{{end}} {{if not .Blocked}}required{{end}} autofocus>
+      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" required autofocus>
     </div>
     <hr style="margin:0.75rem 0">
     <details {{if .HasSchedule}}open{{end}}>
