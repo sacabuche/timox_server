@@ -1,3 +1,5 @@
 timox_server
 *.db
 tmp/
+*.db-shm
+*.db-wal

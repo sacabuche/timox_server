@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
-
 type AppSchedule struct {
 	BlockingStartTime string `json:"blockingStartTime"` // HH:MM
 	BlockingEndTime   string `json:"blockingEndTime"`   // HH:MM

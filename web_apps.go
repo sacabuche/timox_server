@@ -124,14 +124,14 @@ func (wh *WebHandler) editChildLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"ChildUUID":         childUUID,
-		"PackageName":       packageName,
-		"DisplayName":       displayName,
-		"DailyLimitMinutes": dailyLimit,
-		"HasLimit":          hasLimit,
-		"BlockType":         blockType,
-		"DelayedChanges":    delayed,
-		"HasPending":        hasPending,
+		"ChildUUID":            childUUID,
+		"PackageName":          packageName,
+		"DisplayName":          displayName,
+		"DailyLimitMinutes":    dailyLimit,
+		"HasLimit":             hasLimit,
+		"BlockType":            blockType,
+		"DelayedChanges":       delayed,
+		"HasPending":           hasPending,
 		"ScheduleStart":        scheduleStart,
 		"ScheduleEnd":          scheduleEnd,
 		"HasSchedule":          hasSchedule,
