@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -455,6 +456,7 @@ func nilIfEmpty(s string) interface{} {
 
 func newRouter() chi.Router {
 	r := chi.NewRouter()
+	r.Use(middleware.Compress(5))
 
 	// Public
 	r.Post("/users", handleCreateUser)
