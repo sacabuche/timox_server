@@ -62,8 +62,12 @@ func setupDB(dsn string) (*sql.DB, error) {
 }
 
 func initDB() {
+	dsn := os.Getenv("DB_PATH")
+	if dsn == "" {
+		dsn = "app_limits.db"
+	}
 	var err error
-	db, err = setupDB("app_limits.db")
+	db, err = setupDB(dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
