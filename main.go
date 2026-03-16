@@ -44,6 +44,16 @@ func setupDB(dsn string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	_, err = d.Exec(`PRAGMA journal_mode=WAL`)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = d.Exec(`PRAGMA synchronous=NORMAL`)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := runMigrations(d); err != nil {
 		return nil, err
 	}
