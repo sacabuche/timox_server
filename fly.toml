@@ -20,6 +20,7 @@ primary_region = 'ams'
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
+  max_machines_running = 1
   processes = ['app']
 
 [[mounts]]
@@ -27,7 +28,6 @@ primary_region = 'ams'
   destination = '/data'
 
 [[vm]]
-  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
