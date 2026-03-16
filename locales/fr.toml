@@ -297,7 +297,10 @@ other = """L'app respecte sa limite quotidienne et est bloquée pendant la plage
 other = """L'app est toujours bloquée, quelle que soit l'heure ou l'utilisation. À utiliser pour restreindre définitivement une app."""
 
 [BlockTypeGlobalExemptDesc]
-other = """La plage horaire globale ne s'applique pas à cette app — elle reste accessible à tout moment. La limite quotidienne s'applique toujours. Exemple : utile pour le téléphone ou une alarme pendant les heures de repos."""
+other = """La plage horaire globale ne s'applique pas à cette app — elle reste accessible à tout moment. La limite quotidienne s'applique toujours (0 = sans limite). Exemple : utile pour le téléphone ou une alarme pendant les heures de repos."""
+
+[ZeroMeansUnlimited]
+other = """(0 = sans limite)"""
 
 [BlockTypeUnrestrictedDesc]
 other = """L'app n'est jamais bloquée et n'a aucune limite. À utiliser pour les apps de confiance qui doivent toujours rester accessibles."""

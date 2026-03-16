@@ -110,8 +110,8 @@
     </select>
     <p id="le-block-desc-{{.ChildUUID}}" style="font-size:0.8rem;color:#888;margin:0.2rem 0 0.75rem"></p>
     <div id="limit-fields-{{.ChildUUID}}" {{if or (eq .BlockType 1) (eq .BlockType 3)}}style="display:none"{{end}}>
-      <label for="daily_limit_minutes">{{call .T "DailyLimitLabel"}}</label>
-      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="1" autofocus>
+      <label for="daily_limit_minutes">{{call .T "DailyLimitLabel"}}<span id="le-limit-hint-{{.ChildUUID}}" style="font-size:0.8rem;color:#888;margin-left:0.4rem"></span></label>
+      <input type="number" name="daily_limit_minutes" id="daily_limit_minutes" value="{{.DailyLimitMinutes}}" min="0" autofocus>
     </div>
     <div id="schedule-section-{{.ChildUUID}}" {{if or (eq .BlockType 1) (eq .BlockType 3)}}style="display:none"{{end}}>
     <hr style="margin:0.75rem 0">
@@ -166,7 +166,12 @@
       document.getElementById('schedule-section-' + id).style.display = hide ? 'none' : '';
       document.getElementById('le-block-desc-' + id).textContent = leBlockTypeDesc[val] || '';
       var limitInput = document.getElementById('daily_limit_minutes');
-      if (limitInput) limitInput.disabled = hide;
+      if (limitInput) {
+        limitInput.disabled = hide;
+        limitInput.min = val === '2' ? '0' : '1';
+      }
+      var hint = document.getElementById('le-limit-hint-' + id);
+      if (hint) hint.textContent = val === '2' ? '{{call .T "ZeroMeansUnlimited"}}' : '';
     }
     leOnBlockTypeChange('{{.ChildUUID}}', '{{.BlockType}}');
     function leUpdateSave(id) {

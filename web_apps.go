@@ -181,6 +181,24 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-convert Normal + 0 min + no schedule → Blocked.
+	// GlobalExempt + 0 is intentional (no daily limit, exempt from global schedule).
+	if blockType == BlockTypeNormal {
+		newLimit, _ := strconv.Atoi(dailyLimit)
+		if newLimit == 0 {
+			schedStart := strings.TrimSpace(r.FormValue("schedule_start"))
+			schedEnd := strings.TrimSpace(r.FormValue("schedule_end"))
+			removeSchedule := r.FormValue("remove_schedule") == "1"
+			// Check if a schedule will exist after this save
+			var existingSchedStart string
+			wh.DB.QueryRow("SELECT blocking_start_time FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&existingSchedStart)
+			willHaveSchedule := (existingSchedStart != "" && !removeSchedule) || (schedStart != "" && schedEnd != "")
+			if !willHaveSchedule {
+				blockType = BlockTypeBlocked
+			}
+		}
+	}
+
 	if blockType == BlockTypeBlocked || blockType == BlockTypeUnrestricted {
 		// block_type changes are always immediate — clear any pending increase
 		if dailyLimit == "" {
@@ -423,9 +441,19 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 			other = append(other, *a)
 		}
 	}
-	sort.Slice(limited, func(i, j int) bool { return limited[i].TotalUsedMinutes > limited[j].TotalUsedMinutes })
+	sort.Slice(limited, func(i, j int) bool {
+		if limited[i].TotalUsedMinutes != limited[j].TotalUsedMinutes {
+			return limited[i].TotalUsedMinutes > limited[j].TotalUsedMinutes
+		}
+		return limited[i].PackageName < limited[j].PackageName
+	})
 	sort.Slice(blocked, func(i, j int) bool { return blocked[i].DisplayName < blocked[j].DisplayName })
-	sort.Slice(other, func(i, j int) bool { return other[i].TotalUsedMinutes > other[j].TotalUsedMinutes })
+	sort.Slice(other, func(i, j int) bool {
+		if other[i].TotalUsedMinutes != other[j].TotalUsedMinutes {
+			return other[i].TotalUsedMinutes > other[j].TotalUsedMinutes
+		}
+		return other[i].PackageName < other[j].PackageName
+	})
 
 	var totalUsage int
 	for _, a := range apps {

@@ -297,7 +297,10 @@ other = """The app follows its daily limit and is blocked during the global sche
 other = """The app is always blocked, no matter the time or usage. Use this to permanently restrict an app."""
 
 [BlockTypeGlobalExemptDesc]
-other = """The global schedule does not apply to this app — it can be opened at any time. The daily limit still applies. Example: useful for a phone or alarm app during rest hours."""
+other = """The global schedule does not apply to this app — it can be opened at any time. The daily limit still applies (set to 0 for no limit). Example: useful for a phone or alarm app during rest hours."""
+
+[ZeroMeansUnlimited]
+other = """(0 = no limit)"""
 
 [BlockTypeUnrestrictedDesc]
 other = """The app is never blocked and has no limits. Use this for trusted apps that should always be accessible."""

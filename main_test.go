@@ -432,10 +432,12 @@ func TestChildAppLimits_GetOwn(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var limits map[string]AppLimit
-	json.Unmarshal(rec.Body.Bytes(), &limits)
-	if len(limits) != 0 {
-		t.Errorf("expected 0 limits, got %d", len(limits))
+	var resp struct {
+		Limits map[string]AppLimit `json:"limits"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Limits) != 0 {
+		t.Errorf("expected 0 limits, got %d", len(resp.Limits))
 	}
 }
 
@@ -778,13 +780,15 @@ func TestFullAuthFlow(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("managed child GET /app_limits: expected 200, got %d", rec.Code)
 	}
-	var limits map[string]AppLimit
-	json.Unmarshal(rec.Body.Bytes(), &limits)
-	if len(limits) != 1 {
-		t.Errorf("expected 1 limit (parent-set), got %d", len(limits))
+	var resp struct {
+		Limits map[string]AppLimit `json:"limits"`
 	}
-	if limits["com.test.app"].DailyLimitMinutes != 15 {
-		t.Errorf("expected 15 minutes for com.test.app, got %d", limits["com.test.app"].DailyLimitMinutes)
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Limits) != 1 {
+		t.Errorf("expected 1 limit (parent-set), got %d", len(resp.Limits))
+	}
+	if resp.Limits["com.test.app"].DailyLimitMinutes != 15 {
+		t.Errorf("expected 15 minutes for com.test.app, got %d", resp.Limits["com.test.app"].DailyLimitMinutes)
 	}
 
 	// 10. Parent deletes the child
