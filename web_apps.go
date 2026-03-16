@@ -181,9 +181,9 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-convert Normal + 0 min + no schedule → Blocked.
-	// GlobalExempt + 0 is intentional (no daily limit, exempt from global schedule).
-	if blockType == BlockTypeNormal {
+	// Auto-convert to Unrestricted when limit=0 and no schedule: no restrictions means unrestricted.
+	// Applies to Normal and GlobalExempt (GlobalExempt with a schedule stays as-is).
+	if blockType == BlockTypeNormal || blockType == BlockTypeGlobalExempt {
 		newLimit, _ := strconv.Atoi(dailyLimit)
 		if newLimit == 0 {
 			schedStart := strings.TrimSpace(r.FormValue("schedule_start"))
@@ -194,7 +194,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 			wh.DB.QueryRow("SELECT blocking_start_time FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName).Scan(&existingSchedStart)
 			willHaveSchedule := (existingSchedStart != "" && !removeSchedule) || (schedStart != "" && schedEnd != "")
 			if !willHaveSchedule {
-				blockType = BlockTypeBlocked
+				blockType = BlockTypeUnrestricted
 			}
 		}
 	}
@@ -310,6 +310,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		DailyLimitMinutes int
 		HasLimit          bool
 		BlockType         int
+		Unlimited         bool // GlobalExempt + dailyLimitMinutes==0 → no daily limit
 		Remaining         int
 		OverLimit         bool
 		PendingLimit      int
@@ -432,9 +433,12 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		if a.HasLimit && a.BlockType == BlockTypeBlocked {
 			blocked = append(blocked, *a)
 		} else if a.HasLimit {
-			a.Remaining = a.DailyLimitMinutes - a.TotalUsedMinutes
-			if a.BlockType != BlockTypeUnrestricted {
-				a.OverLimit = a.Remaining <= 0
+			a.Unlimited = a.BlockType == BlockTypeGlobalExempt && a.DailyLimitMinutes == 0
+			if !a.Unlimited {
+				a.Remaining = a.DailyLimitMinutes - a.TotalUsedMinutes
+				if a.BlockType != BlockTypeUnrestricted {
+					a.OverLimit = a.Remaining <= 0
+				}
 			}
 			limited = append(limited, *a)
 		} else {
