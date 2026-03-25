@@ -14,6 +14,14 @@
   </section>
 
   <section>
+    <h4>{{call .T "TotalDailyLimitSection"}}</h4>
+    <p><small class="muted">{{call .T "TotalDailyLimitHelp"}}</small></p>
+    <div id="total-limit-{{.Child.UUID}}">
+      {{template "total-daily-limit-form" .}}
+    </div>
+  </section>
+
+  <section>
     <h4>{{call .T "GlobalScheduleSection"}}</h4>
     <p><small class="muted">{{call .T "GlobalScheduleHelp"}}</small></p>
     <div id="global-schedule-{{.Child.UUID}}">
@@ -122,4 +130,29 @@
 
 {{define "child-token-button"}}
   <button hx-post="/web/children/{{.ChildUUID}}/token" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "GenerateToken"}}</button>
+{{end}}
+
+{{define "total-daily-limit-form"}}
+  <form hx-post="/web/children/{{.Child.UUID}}/total-limit" hx-target="#total-limit-{{.Child.UUID}}" hx-swap="innerHTML">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <label style="flex:1;min-width:120px;margin:0">
+        <small>{{call .T "TotalDailyLimitLabel"}}</small>
+        <input type="number" name="total_limit_minutes" min="1" style="margin-top:0.25rem;margin-bottom:0"
+          value="{{if .HasTotalLimit}}{{.TotalLimitMinutes}}{{end}}"
+          placeholder="e.g. 120">
+      </label>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0">
+        <button type="submit" style="width:auto;margin:0">{{call .T "SaveButton2"}}</button>
+        {{if .HasTotalLimit}}
+        <button type="button" class="outline secondary" style="width:auto;margin:0"
+          hx-post="/web/children/{{.Child.UUID}}/total-limit"
+          hx-vals='{"remove":"1"}'
+          hx-target="#total-limit-{{.Child.UUID}}" hx-swap="innerHTML">{{call .T "ClearSchedule"}}</button>
+        {{end}}
+      </div>
+    </div>
+    {{if .HasTotalLimit}}
+    <p style="margin-top:0.5rem;margin-bottom:0"><small style="color:white">⏱ {{call .T "TotalLimitActive" (dict "Minutes" .TotalLimitMinutes)}}</small></p>
+    {{end}}
+  </form>
 {{end}}

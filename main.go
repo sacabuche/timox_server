@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -17,20 +16,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	_ "modernc.org/sqlite"
 )
 
 var db *sql.DB
 
 var jwtSecret []byte
-
-func init() {
-	s := os.Getenv("JWT_SECRET")
-	if s == "" {
-		s = "dev-secret-do-not-use-in-production"
-	}
-	jwtSecret = []byte(s)
-}
 
 // --- Database setup ---
 
@@ -63,10 +55,7 @@ func setupDB(dsn string) (*sql.DB, error) {
 }
 
 func initDB() {
-	dsn := os.Getenv("DB_PATH")
-	if dsn == "" {
-		dsn = "app_limits.db"
-	}
+	dsn := cfg.DBPath
 	var err error
 	db, err = setupDB(dsn)
 	if err != nil {
@@ -221,6 +210,8 @@ func handleAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	sendLoginToken(user.Email, token)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -490,6 +481,13 @@ func newRouter() chi.Router {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
+	loadConfig()
+	jwtSecret = []byte(cfg.JWTSecret)
+
 	initDB()
 	defer db.Close()
 

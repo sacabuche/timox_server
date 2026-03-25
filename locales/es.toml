@@ -29,7 +29,10 @@ other = """¡Cuenta creada!"""
 other = """Inicia sesión aquí"""
 
 [TokenInstruction]
-other = """Consulta la consola del servidor e ingresa el token a continuación:"""
+other = """Revisa tu correo electrónico e ingresa el token a continuación:"""
+
+[ChangeEmail]
+other = """Cambiar"""
 
 [TokenLabel]
 other = """Token"""
@@ -304,3 +307,18 @@ other = """(0 = sin límite)"""
 
 [BlockTypeUnrestrictedDesc]
 other = """La app nunca se bloquea y no tiene límites. Úsalo para apps de confianza que deben estar siempre accesibles."""
+
+[TotalDailyLimitSection]
+other = """Tiempo de pantalla diario total"""
+
+[TotalDailyLimitHelp]
+other = """Tiempo máximo de pantalla por día en todas las apps. El dispositivo del hijo bloqueará todas las apps cuando se alcance este límite."""
+
+[TotalDailyLimitLabel]
+other = """Límite diario total (minutos)"""
+
+[TotalLimitActive]
+other = """Activo: {{.Minutes}} min/día en total"""
+
+[TotalLimitRemaining]
+other = """restantes"""

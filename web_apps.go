@@ -341,7 +341,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		       (SELECT app_name FROM app_usage
 		        WHERE user_uuid = al.user_uuid AND package_name = al.package_name AND app_name IS NOT NULL
 		        ORDER BY usage_date DESC LIMIT 1)
-		FROM app_limits al WHERE al.user_uuid = ?`, childUUID)
+		FROM app_limits al WHERE al.user_uuid = ? AND al.package_name != ?`, childUUID, GlobalTimePkg)
 	if limRows != nil {
 		defer limRows.Close()
 		for limRows.Next() {
@@ -464,13 +464,23 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		totalUsage += a.TotalUsedMinutes
 	}
 
+	var totalLimitMinutes int
+	var hasTotalLimit bool
+	var rawTotal sql.NullInt64
+	if err := wh.DB.QueryRow("SELECT daily_limit_minutes FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, GlobalTimePkg).Scan(&rawTotal); err == nil {
+		totalLimitMinutes = int(rawTotal.Int64)
+		hasTotalLimit = true
+	}
+
 	renderPartial(w, r, "child-apps", map[string]interface{}{
-		"ChildUUID":        childUUID,
-		"Limited":          limited,
-		"Blocked":          blocked,
-		"Other":            other,
-		"TotalUsage":       totalUsage,
-		"GlobalSchedule":   globalScheduleStr,
-		"GlobalUnlockTime": globalUnlockTime,
+		"ChildUUID":         childUUID,
+		"Limited":           limited,
+		"Blocked":           blocked,
+		"Other":             other,
+		"TotalUsage":        totalUsage,
+		"GlobalSchedule":    globalScheduleStr,
+		"GlobalUnlockTime":  globalUnlockTime,
+		"TotalLimitMinutes": totalLimitMinutes,
+		"HasTotalLimit":     hasTotalLimit,
 	})
 }

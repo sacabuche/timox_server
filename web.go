@@ -34,6 +34,7 @@ func (wh *WebHandler) Routes() chi.Router {
 	r.Post("/login", wh.handleLogin)
 	r.Get("/register", wh.showRegister)
 	r.Post("/register", wh.handleRegister)
+	r.Get("/email-form", wh.showEmailForm)
 	r.Post("/request-token", wh.handleRequestToken)
 	r.Get("/logout", wh.handleLogout)
 
@@ -57,6 +58,7 @@ func (wh *WebHandler) Routes() chi.Router {
 		r.Delete("/children/{childUUID}/schedules/{packageName}", wh.deleteChildSchedule)
 		r.Post("/children/{childUUID}/global-schedule", wh.saveChildGlobalSchedule)
 		r.Post("/children/{childUUID}/delayed-changes", wh.toggleDelayedChanges)
+		r.Post("/children/{childUUID}/total-limit", wh.saveTotalDailyLimit)
 	})
 
 	return r

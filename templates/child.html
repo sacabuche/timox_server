@@ -24,8 +24,21 @@
   <dialog id="limit-dialog-{{.ChildUUID}}" onclick="if(event.target===this)this.close()">
     <article id="limit-dialog-content-{{.ChildUUID}}"></article>
   </dialog>
+  {{if .HasTotalLimit}}
+  {{$remaining := (sub .TotalLimitMinutes .TotalUsage)}}
+  <article style="padding:.75rem 1rem;margin-bottom:.5rem;{{if le $remaining 0}}background:var(--pico-del-color){{end}}">
+    <strong>{{call .T "TotalDailyLimitSection"}}</strong>
+    <span style="float:right">
+      {{fmtMin .TotalUsage}} / {{fmtMin .TotalLimitMinutes}} min
+      {{if le $remaining 0}}
+        — <span class="text-red">{{call .T "OverLimit"}}</span>
+      {{else}}
+        — <span class="text-green">{{fmtMin $remaining}} {{call .T "TotalLimitRemaining"}}</span>
+      {{end}}
+    </span>
+  </article>
+  {{else if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   {{if .GlobalSchedule}}<p style="font-size:.9rem">{{call .T "GlobalScheduleLabel"}}: {{.GlobalSchedule}}{{if .GlobalUnlockTime}} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e53935;animation:glow-pulse 1.5s ease-in-out infinite;vertical-align:middle;margin-left:4px"></span>{{end}}</p>{{end}}
-  {{if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   <div class="overflow-auto">
   {{if or .Limited .Blocked .Other}}
   <table class="striped">

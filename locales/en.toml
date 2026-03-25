@@ -29,7 +29,10 @@ other = """Account created!"""
 other = """Login here"""
 
 [TokenInstruction]
-other = """Check the server console and enter the token below:"""
+other = """Check your email and enter the token below:"""
+
+[ChangeEmail]
+other = """Change"""
 
 [TokenLabel]
 other = """Token"""
@@ -304,3 +307,18 @@ other = """(0 = no limit)"""
 
 [BlockTypeUnrestrictedDesc]
 other = """The app is never blocked and has no limits. Use this for trusted apps that should always be accessible."""
+
+[TotalDailyLimitSection]
+other = """Total Daily Screen Time"""
+
+[TotalDailyLimitHelp]
+other = """Maximum total screen time per day across all apps. The child's device will block all apps once this limit is reached."""
+
+[TotalDailyLimitLabel]
+other = """Total daily limit (minutes)"""
+
+[TotalLimitActive]
+other = """Active: {{.Minutes}} min/day total"""
+
+[TotalLimitRemaining]
+other = """left"""

@@ -16,6 +16,7 @@ var templateFiles embed.FS
 
 var funcMap = template.FuncMap{
 	"today": func() string { return time.Now().Format("2006-01-02") },
+	"sub":   func(a, b int) int { return a - b },
 	"fmtMin": func(m int) string {
 		if m < 60 {
 			return fmt.Sprintf("%d", m)

@@ -2,12 +2,7 @@
   <article>
     <header><h2>{{call .T "LoginHeading"}}</h2></header>
     <div id="login-area">
-      <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML">
-        <label for="email">{{call .T "EmailLabel"}}</label>
-        <input type="email" name="email" id="email" placeholder="{{call .T "EmailPlaceholder"}}" required>
-        <button type="submit">{{call .T "SendLoginToken"}}</button>
-      </form>
-      <p style="text-align:center"><small>{{call .T "NoAccount"}} <a href="/web/register">{{call .T "RegisterHere"}}</a></small></p>
+      {{template "email-form" .}}
     </div>
   </article>
 {{end}}
@@ -29,18 +24,34 @@
 {{end}}
 
 {{define "token-step"}}
-  <form hx-post="/web/login" hx-target="#login-area" hx-swap="innerHTML">
+  <form hx-post="/web/login" hx-target="#login-area" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
     <input type="hidden" name="email" value="{{.Email}}">
-    <p>{{call .T "TokenInstruction"}}</p>
+    <p style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <span>{{call .T "TokenInstruction"}}</span>
+      <span style="display:inline-flex;align-items:center;gap:.4rem">
+        <strong>{{.Email}}</strong>
+        <button type="button" class="outline secondary" style="margin:0;padding:.1rem .5rem;font-size:.8rem;width:auto"
+          hx-get="/web/email-form" hx-target="#login-area" hx-swap="innerHTML">{{call .T "ChangeEmail"}}</button>
+      </span>
+    </p>
     <label for="token">{{call .T "TokenLabel"}}</label>
     <input type="text" name="token" id="token" placeholder="{{call .T "TokenPlaceholder"}}" required style="text-transform:uppercase;letter-spacing:.2rem" autofocus>
     <button type="submit">{{call .T "LoginButton"}}</button>
   </form>
 {{end}}
 
+{{define "email-form"}}
+  <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
+    <label for="email">{{call .T "EmailLabel"}}</label>
+    <input type="email" name="email" id="email" placeholder="{{call .T "EmailPlaceholder"}}" required autofocus>
+    <button type="submit">{{call .T "SendLoginToken"}}</button>
+  </form>
+  <p style="text-align:center"><small>{{call .T "NoAccount"}} <a href="/web/register">{{call .T "RegisterHere"}}</a></small></p>
+{{end}}
+
 {{define "login-error"}}
   <p class="text-red">{{.Error}}</p>
-  <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML">
+  <form hx-post="/web/request-token" hx-target="#login-area" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
     <label for="email">{{call .T "EmailLabel"}}</label>
     <input type="email" name="email" id="email" placeholder="{{call .T "EmailPlaceholder"}}" required>
     <button type="submit">{{call .T "SendLoginToken"}}</button>

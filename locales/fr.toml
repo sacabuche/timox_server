@@ -29,7 +29,10 @@ other = """Compte créé !"""
 other = """Connectez-vous ici"""
 
 [TokenInstruction]
-other = """Consultez la console du serveur et entrez le jeton ci-dessous :"""
+other = """Vérifiez votre e-mail et entrez le jeton ci-dessous :"""
+
+[ChangeEmail]
+other = """Modifier"""
 
 [TokenLabel]
 other = """Jeton"""
@@ -304,3 +307,18 @@ other = """(0 = sans limite)"""
 
 [BlockTypeUnrestrictedDesc]
 other = """L'app n'est jamais bloquée et n'a aucune limite. À utiliser pour les apps de confiance qui doivent toujours rester accessibles."""
+
+[TotalDailyLimitSection]
+other = """Temps d'écran quotidien total"""
+
+[TotalDailyLimitHelp]
+other = """Temps d'écran maximal par jour toutes apps confondues. L'appareil de l'enfant bloquera toutes les apps une fois cette limite atteinte."""
+
+[TotalDailyLimitLabel]
+other = """Limite quotidienne totale (minutes)"""
+
+[TotalLimitActive]
+other = """Actif : {{.Minutes}} min/jour au total"""
+
+[TotalLimitRemaining]
+other = """restantes"""

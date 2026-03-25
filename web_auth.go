@@ -1,8 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
+	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
 
 // --- Cookie auth middleware ---
 
@@ -56,6 +58,10 @@ func (wh *WebHandler) showLogin(w http.ResponseWriter, r *http.Request) {
 	renderPage(w, r, "login-page", nil)
 }
 
+func (wh *WebHandler) showEmailForm(w http.ResponseWriter, r *http.Request) {
+	renderPartial(w, r, "email-form", nil)
+}
+
 func (wh *WebHandler) showRegister(w http.ResponseWriter, r *http.Request) {
 	renderPage(w, r, "register-page", map[string]interface{}{})
 }
@@ -90,24 +96,20 @@ func (wh *WebHandler) handleRequestToken(w http.ResponseWriter, r *http.Request)
 
 	var userUUID string
 	err := wh.DB.QueryRow("SELECT uuid FROM users WHERE email = ? AND role = 'parent'", email).Scan(&userUUID)
-	if err == sql.ErrNoRows {
-		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "User not found"})
-		return
-	} else if err != nil {
-		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Server error"})
-		return
-	}
-
-	token, err := generateToken()
 	if err != nil {
-		renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Failed to generate token"})
-		return
+		log.Printf("[auth] login attempt for unknown email: %s\n", email)
+		time.Sleep(time.Duration(200+rand.Intn(400)) * time.Millisecond)
+	} else {
+		token, err := generateToken()
+		if err != nil {
+			renderPartial(w, r, "login-error", map[string]interface{}{"Error": "Failed to generate token"})
+			return
+		}
+		expiresAt := time.Now().Add(10 * time.Minute)
+		wh.DB.Exec("INSERT INTO auth_tokens (token, user_uuid, expires_at) VALUES (?, ?, ?)", token, userUUID, expiresAt)
+		sendLoginToken(email, token)
 	}
 
-	expiresAt := time.Now().Add(10 * time.Minute)
-	wh.DB.Exec("INSERT INTO auth_tokens (token, user_uuid, expires_at) VALUES (?, ?, ?)", token, userUUID, expiresAt)
-
-	fmt.Printf("[Web] Auth token for %s: %s\n", email, token)
 	renderPartial(w, r, "token-step", map[string]interface{}{"Email": email})
 }
 

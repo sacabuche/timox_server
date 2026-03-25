@@ -3,3 +3,4 @@ timox_server
 tmp/
 *.db-shm
 *.db-wal
+.env

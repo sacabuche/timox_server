@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,16 +81,67 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 	var scheduleStart, scheduleEnd sql.NullString
 	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd)
 
+	var totalLimitMinutes int
+	var hasTotalLimit bool
+	var rawTotal sql.NullInt64
+	if err := wh.DB.QueryRow("SELECT daily_limit_minutes FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, GlobalTimePkg).Scan(&rawTotal); err == nil {
+		totalLimitMinutes = int(rawTotal.Int64)
+		hasTotalLimit = true
+	}
+
 	hasSchedule := scheduleStart.Valid && scheduleEnd.Valid
 	renderPage(w, r, "child-settings-page", map[string]interface{}{
-		"Child":          child,
-		"DelayedChanges": delayed,
-		"DisableAt":      disableAt,
-		"Checked":        delayed && disableAt == nil,
-		"ScheduleStart":  scheduleStart.String,
-		"ScheduleEnd":    scheduleEnd.String,
-		"HasSchedule":    hasSchedule,
-		"BlockedHours":   scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
+		"Child":             child,
+		"DelayedChanges":    delayed,
+		"DisableAt":         disableAt,
+		"Checked":           delayed && disableAt == nil,
+		"ScheduleStart":     scheduleStart.String,
+		"ScheduleEnd":       scheduleEnd.String,
+		"HasSchedule":       hasSchedule,
+		"BlockedHours":      scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
+		"TotalLimitMinutes": totalLimitMinutes,
+		"HasTotalLimit":     hasTotalLimit,
+	})
+}
+
+func (wh *WebHandler) saveTotalDailyLimit(w http.ResponseWriter, r *http.Request) {
+	parentUUID := r.Context().Value(CtxUserUUID).(string)
+	childUUID := chi.URLParam(r, "childUUID")
+
+	if !wh.ownsChild(parentUUID, childUUID) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	remove := r.FormValue("remove") == "1"
+	if remove {
+		wh.DB.Exec("DELETE FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, GlobalTimePkg)
+	} else {
+		limit, err := strconv.Atoi(r.FormValue("total_limit_minutes"))
+		if err != nil || limit <= 0 {
+			http.Error(w, "invalid total_limit_minutes", http.StatusBadRequest)
+			return
+		}
+		wh.DB.Exec(
+			`INSERT INTO app_limits (user_uuid, package_name, daily_limit_minutes, block_type)
+			 VALUES (?, ?, ?, 0)
+			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes`,
+			childUUID, GlobalTimePkg, limit,
+		)
+	}
+
+	var totalLimitMinutes int
+	var hasTotalLimit bool
+	var rawTotal sql.NullInt64
+	if err := wh.DB.QueryRow("SELECT daily_limit_minutes FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, GlobalTimePkg).Scan(&rawTotal); err == nil {
+		totalLimitMinutes = int(rawTotal.Int64)
+		hasTotalLimit = true
+	}
+
+	renderPartial(w, r, "total-daily-limit-form", map[string]interface{}{
+		"Child":             User{UUID: childUUID},
+		"TotalLimitMinutes": totalLimitMinutes,
+		"HasTotalLimit":     hasTotalLimit,
 	})
 }
 
