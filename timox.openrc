@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+
+name="timox"
+description="Timox server"
+command="/opt/timox/timox-server"
+directory="/opt/timox"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/timox/stdout.log"
+error_log="/var/log/timox/stderr.log"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    mkdir -p /var/log/timox /opt/timox/data
+    checkpath --directory --owner daniel:daniel /var/log/timox /opt/timox/data
+}

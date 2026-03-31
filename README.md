@@ -47,3 +47,30 @@ Two interfaces on the same port:
 ### Database
 
 SQLite with tables: `users`, `app_limits`, `auth_tokens`, `parent_children`, `app_usage`. Tests use an in-memory DB (`:memory:`).
+
+## Deployment
+
+Targets a Linux host (Alpine/OpenRC) reachable via SSH as `freebox`. The binary is cross-compiled locally and copied over.
+
+### Prerequisites
+
+- SSH alias `freebox` configured in `~/.ssh/config`
+- Remote directory `/opt/timox` exists and is writable
+- Environment file at `/opt/timox/.env` (see `.env.example`):
+  ```
+  JWT_SECRET=your-strong-secret-here
+  RESEND_API_KEY=re_...
+  ```
+- OpenRC service installed on the remote:
+  ```sh
+  scp timox.openrc freebox:/etc/init.d/timox
+  ssh freebox "chmod +x /etc/init.d/timox && doas rc-update add timox default"
+  ```
+
+### Deploy
+
+```sh
+./deploy.sh
+```
+
+This builds a static `linux/arm64` binary, copies it to `freebox:/opt/timox/timox-server`, and restarts the `timox` service via OpenRC. Logs are written to `/var/log/timox/`.

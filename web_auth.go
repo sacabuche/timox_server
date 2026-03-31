@@ -46,6 +46,22 @@ func webAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Sliding session: renew the cookie if it expires within 15 days
+		if exp, ok := claims["exp"].(float64); ok {
+			if time.Until(time.Unix(int64(exp), 0)) < 15*24*time.Hour {
+				if newJWT, err := generateJWT(sub, role); err == nil {
+					http.SetCookie(w, &http.Cookie{
+						Name:     "session",
+						Value:    newJWT,
+						Path:     "/",
+						HttpOnly: true,
+						SameSite: http.SameSiteLaxMode,
+						MaxAge:   30 * 24 * 60 * 60,
+					})
+				}
+			}
+		}
+
 		ctx := withUserUUID(r.Context(), sub)
 		ctx = withUserRole(ctx, role)
 		next.ServeHTTP(w, r.WithContext(ctx))
