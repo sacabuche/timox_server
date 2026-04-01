@@ -43,6 +43,9 @@ other = """ABCDEFGH"""
 [LoginButton]
 other = """Iniciar sesión"""
 
+[StaySignedIn]
+other = """Mantener sesión iniciada"""
+
 [DashboardHeading]
 other = """Timox Padre"""
 

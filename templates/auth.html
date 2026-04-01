@@ -36,6 +36,7 @@
     </p>
     <label for="token">{{call .T "TokenLabel"}}</label>
     <input type="text" name="token" id="token" placeholder="{{call .T "TokenPlaceholder"}}" required style="text-transform:uppercase;letter-spacing:.2rem" autofocus>
+    <label><input type="checkbox" name="stay_signed_in" value="1"> {{call .T "StaySignedIn"}}</label>
     <button type="submit">{{call .T "LoginButton"}}</button>
   </form>
 {{end}}

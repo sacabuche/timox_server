@@ -43,6 +43,9 @@ other = """ABCDEFGH"""
 [LoginButton]
 other = """Se connecter"""
 
+[StaySignedIn]
+other = """Rester connecté"""
+
 [DashboardHeading]
 other = """Timox Parent"""
 
