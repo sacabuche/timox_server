@@ -24,6 +24,9 @@ var db *sql.DB
 
 var jwtSecret []byte
 
+var buildDate = "dev"
+var commitSHA = "dev"
+
 // --- Database setup ---
 
 func setupDB(dsn string) (*sql.DB, error) {

@@ -51,4 +51,5 @@
       <button onclick="document.getElementById('add-child-dialog').showModal()">{{call .T "AddChild"}}</button>
     </div>
   {{end}}
+  <p style="text-align:center;margin-top:2rem;font-size:.75rem;color:var(--pico-muted-color)">{{.BuildDate}} · {{.CommitSHA}}</p>
 {{end}}

@@ -17,7 +17,9 @@ func (wh *WebHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	parentUUID := r.Context().Value(CtxUserUUID).(string)
 	children := wh.listChildren(parentUUID)
 	renderPage(w, r, "dashboard-page", map[string]interface{}{
-		"Children": children,
+		"Children":  children,
+		"BuildDate": buildDate,
+		"CommitSHA": commitSHA,
 	})
 }
 
