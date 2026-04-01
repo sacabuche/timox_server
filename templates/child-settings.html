@@ -57,6 +57,8 @@
     </dialog>
     <button class="outline secondary" style="color: #c62828; border-color: #c62828" onclick="document.getElementById('delete-dialog-{{.Child.UUID}}').showModal()">{{call .T "DeleteChild"}}</button>
   </section>
+
+  <p style="text-align:center;margin-top:2rem;font-size:.75rem;color:var(--pico-muted-color)">{{.BuildDate}} · {{.CommitSHA}}</p>
 {{end}}
 
 {{define "global-schedule-form"}}

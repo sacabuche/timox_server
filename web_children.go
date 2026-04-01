@@ -17,9 +17,7 @@ func (wh *WebHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	parentUUID := r.Context().Value(CtxUserUUID).(string)
 	children := wh.listChildren(parentUUID)
 	renderPage(w, r, "dashboard-page", map[string]interface{}{
-		"Children":  children,
-		"BuildDate": buildDate,
-		"CommitSHA": commitSHA,
+		"Children": children,
 	})
 }
 
@@ -103,6 +101,8 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 		"BlockedHours":      scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
 		"TotalLimitMinutes": totalLimitMinutes,
 		"HasTotalLimit":     hasTotalLimit,
+		"BuildDate":         buildDate,
+		"CommitSHA":         commitSHA,
 	})
 }
 
