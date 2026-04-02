@@ -39,6 +39,18 @@
   </article>
   {{else if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   {{if .GlobalSchedule}}<p style="font-size:.9rem">{{call .T "GlobalScheduleLabel"}}: {{.GlobalSchedule}}{{if .GlobalUnlockTime}} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e53935;animation:glow-pulse 1.5s ease-in-out infinite;vertical-align:middle;margin-left:4px"></span>{{end}}</p>{{end}}
+  <div style="display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:.5rem">
+    <button class="outline secondary" style="width:auto;margin:0;padding:.2rem .6rem"
+      hx-get="/web/children/{{.ChildUUID}}/apps?date={{.PrevDate}}"
+      hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML">‹</button>
+    <input type="date" value="{{.SelectedDate}}" max="{{.TodayDate}}"
+      style="width:auto;margin:0;padding:.2rem .5rem;font-size:.9rem;cursor:pointer"
+      onclick="try{this.showPicker()}catch(e){}"
+      onchange="htmx.ajax('GET','/web/children/{{.ChildUUID}}/apps?date='+this.value,{target:'#apps-{{.ChildUUID}}',swap:'innerHTML'})">
+    <button class="outline secondary" style="width:auto;margin:0;padding:.2rem .6rem"
+      {{if not .NextDate}}disabled{{end}}
+      {{if .NextDate}}hx-get="/web/children/{{.ChildUUID}}/apps?date={{.NextDate}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML"{{end}}>›</button>
+  </div>
   <div class="overflow-auto">
   {{if or .Limited .Blocked .Other}}
   <table class="striped">

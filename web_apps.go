@@ -322,7 +322,23 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		UnlockTime        string // non-empty = currently blocked by schedule
 	}
 
-	today := time.Now().Format("2006-01-02")
+	todayStr := time.Now().Format("2006-01-02")
+	selectedDate := r.URL.Query().Get("date")
+	if selectedDate == "" {
+		selectedDate = todayStr
+	} else if _, err := time.Parse("2006-01-02", selectedDate); err != nil {
+		selectedDate = todayStr
+	} else if selectedDate > todayStr {
+		selectedDate = todayStr
+	}
+	selTime, _ := time.Parse("2006-01-02", selectedDate)
+	prevDate := selTime.AddDate(0, 0, -1).Format("2006-01-02")
+	nextDate := selTime.AddDate(0, 0, 1).Format("2006-01-02")
+	isToday := selectedDate == todayStr
+	if nextDate > todayStr {
+		nextDate = ""
+	}
+	today := selectedDate
 	apps := map[string]*AppRow{}
 
 	// Global schedule
@@ -395,8 +411,17 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		}
 	}
 
-	// Load today's usage
-	usageRows, _ := wh.DB.Query("SELECT package_name, total_used_minutes, app_name FROM app_usage WHERE user_uuid = ? AND usage_date = ?", childUUID, today)
+	// Load all ever-reported apps, with today's usage minutes (0 if not used today).
+	usageRows, _ := wh.DB.Query(`
+		SELECT
+			au.package_name,
+			COALESCE(MAX(CASE WHEN au.usage_date = ? THEN au.total_used_minutes END), 0) AS today_minutes,
+			(SELECT app_name FROM app_usage
+			 WHERE user_uuid = ? AND package_name = au.package_name AND app_name IS NOT NULL
+			 ORDER BY usage_date DESC LIMIT 1) AS app_name
+		FROM app_usage au
+		WHERE au.user_uuid = ?
+		GROUP BY au.package_name`, today, childUUID, childUUID)
 	if usageRows != nil {
 		defer usageRows.Close()
 		for usageRows.Next() {
@@ -404,12 +429,15 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 			var used int
 			var appName sql.NullString
 			usageRows.Scan(&pkg, &used, &appName)
+			usedToday := used > 0
 			if a, ok := apps[pkg]; ok {
 				a.TotalUsedMinutes = used
-				a.UsedToday = true
-				a.AppName = appName.String
+				a.UsedToday = usedToday
+				if appName.String != "" {
+					a.AppName = appName.String
+				}
 			} else {
-				apps[pkg] = &AppRow{PackageName: pkg, AppName: appName.String, TotalUsedMinutes: used, UsedToday: true}
+				apps[pkg] = &AppRow{PackageName: pkg, AppName: appName.String, TotalUsedMinutes: used, UsedToday: usedToday}
 			}
 		}
 	}
@@ -482,5 +510,10 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		"GlobalUnlockTime":  globalUnlockTime,
 		"TotalLimitMinutes": totalLimitMinutes,
 		"HasTotalLimit":     hasTotalLimit,
+		"SelectedDate":      selectedDate,
+		"TodayDate":         todayStr,
+		"PrevDate":          prevDate,
+		"NextDate":          nextDate,
+		"IsToday":           isToday,
 	})
 }
