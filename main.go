@@ -344,6 +344,7 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 
 func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 	userUUID := r.Context().Value(CtxUserUUID).(string)
+	fmt.Printf("Getting app limits for user %s\n", userUUID)
 
 	// Apply any pending limits that are past due
 	applyPendingLimits(db, userUUID)
@@ -391,6 +392,24 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 		"globalSchedule": globalSchedule,
 		"limits":         limits,
 	})
+}
+
+func handleChildLimitsVersion(w http.ResponseWriter, r *http.Request) {
+	userUUID := r.Context().Value(CtxUserUUID).(string)
+	fmt.Printf("Checking limits version for user %s\n", userUUID)
+
+	var updatedAt sql.NullString
+	if err := db.QueryRow("SELECT limits_updated_at FROM users WHERE uuid = ?", userUUID).Scan(&updatedAt); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if updatedAt.Valid {
+		json.NewEncoder(w).Encode(map[string]string{"updatedAt": updatedAt.String})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"updatedAt": nil})
 }
 
 func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
@@ -465,6 +484,7 @@ func newRouter() chi.Router {
 
 	// Child: own limits (JWT required, role=child)
 	r.With(authMiddleware, requireRole("child")).Get("/app_limits", handleChildAppLimits)
+	r.With(authMiddleware, requireRole("child")).Get("/limits_version", handleChildLimitsVersion)
 
 	// Parent: children management (JWT required, role=parent)
 	childrenHandler := &Handler{DB: db}

@@ -44,6 +44,11 @@ type Handler struct {
 	DB *sql.DB
 }
 
+func touchLimitsUpdatedAt(db *sql.DB, childUUID string) {
+	db.Exec("UPDATE users SET limits_updated_at = ? WHERE uuid = ?",
+		time.Now().UTC().Format(time.RFC3339), childUUID)
+}
+
 func (h *Handler) parentOwnsChild(parentUUID, childUUID string) (bool, error) {
 	var exists bool
 	err := h.DB.QueryRow(
@@ -324,6 +329,7 @@ func (h *Handler) UpdateAppLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	// Clear any pending limit
 	h.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+	touchLimitsUpdatedAt(h.DB, childUUID)
 
 	var limit AppLimit
 	err = h.DB.QueryRow(
@@ -418,5 +424,6 @@ func (h *Handler) DeleteAppLimit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	touchLimitsUpdatedAt(h.DB, childUUID)
 	w.WriteHeader(http.StatusNoContent)
 }

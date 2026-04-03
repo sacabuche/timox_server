@@ -168,6 +168,7 @@ func (wh *WebHandler) saveChildGlobalSchedule(w http.ResponseWriter, r *http.Req
 	} else {
 		wh.DB.Exec("UPDATE users SET blocking_start_time = NULL, blocking_end_time = NULL WHERE uuid = ?", childUUID)
 	}
+	touchLimitsUpdatedAt(wh.DB, childUUID)
 
 	var scheduleStart, scheduleEnd sql.NullString
 	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd)

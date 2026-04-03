@@ -28,6 +28,7 @@ func applyPendingLimits(db *sql.DB, childUUID string) {
 	}
 	defer rows.Close()
 
+	promoted := false
 	for rows.Next() {
 		var pkg string
 		var limit, blockType int
@@ -39,9 +40,13 @@ func applyPendingLimits(db *sql.DB, childUUID string) {
 			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET daily_limit_minutes = excluded.daily_limit_minutes, block_type = excluded.block_type`,
 			childUUID, pkg, limit, blockType,
 		)
+		promoted = true
 	}
 
 	db.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND applies_at <= ?", childUUID, now)
+	if promoted {
+		touchLimitsUpdatedAt(db, childUUID)
+	}
 }
 
 func isDelayedChangesEnabled(db *sql.DB, childUUID string) bool {
@@ -199,6 +204,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	limitsChanged := false
 	if blockType == BlockTypeBlocked || blockType == BlockTypeUnrestricted {
 		// block_type changes are always immediate — clear any pending increase
 		if dailyLimit == "" {
@@ -211,6 +217,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 			childUUID, packageName, dailyLimit, blockType,
 		)
 		wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+		limitsChanged = true
 	} else {
 		newLimit, _ := strconv.Atoi(dailyLimit)
 
@@ -226,7 +233,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 		isIncrease := hasExisting && currentBlockType == BlockTypeNormal && newLimit > currentLimit
 
 		if delayed && isIncrease {
-			// Store as pending with 24h delay
+			// Store as pending with 24h delay — effective limits unchanged
 			appliesAt := time.Now().UTC().Add(24 * time.Hour).Format("2006-01-02 15:04:05")
 			wh.DB.Exec(
 				`INSERT INTO pending_app_limits (user_uuid, package_name, daily_limit_minutes, block_type, applies_at)
@@ -244,6 +251,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 			)
 			// Clear any pending limit for this app
 			wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+			limitsChanged = true
 		}
 	}
 
@@ -253,6 +261,7 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 	removeSchedule := r.FormValue("remove_schedule") == "1"
 	if removeSchedule {
 		wh.DB.Exec("DELETE FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+		limitsChanged = true
 	} else if scheduleStart != "" || scheduleEnd != "" {
 		if !isValidTime(scheduleStart) || !isValidTime(scheduleEnd) {
 			http.Error(w, "invalid schedule time format, use HH:MM", http.StatusBadRequest)
@@ -264,8 +273,12 @@ func (wh *WebHandler) addChildLimit(w http.ResponseWriter, r *http.Request) {
 			 ON CONFLICT(user_uuid, package_name) DO UPDATE SET blocking_start_time = excluded.blocking_start_time, blocking_end_time = excluded.blocking_end_time`,
 			childUUID, packageName, scheduleStart, scheduleEnd,
 		)
+		limitsChanged = true
 	}
 
+	if limitsChanged {
+		touchLimitsUpdatedAt(wh.DB, childUUID)
+	}
 	applyPendingLimits(wh.DB, childUUID)
 	wh.renderApps(w, r, childUUID)
 }
@@ -283,6 +296,7 @@ func (wh *WebHandler) deleteChildLimit(w http.ResponseWriter, r *http.Request) {
 	// Removing a limit is immediate — also clear any pending
 	wh.DB.Exec("DELETE FROM app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
 	wh.DB.Exec("DELETE FROM pending_app_limits WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+	touchLimitsUpdatedAt(wh.DB, childUUID)
 	wh.renderApps(w, r, childUUID)
 }
 
@@ -297,6 +311,7 @@ func (wh *WebHandler) deleteChildSchedule(w http.ResponseWriter, r *http.Request
 	}
 
 	wh.DB.Exec("DELETE FROM app_schedules WHERE user_uuid = ? AND package_name = ?", childUUID, packageName)
+	touchLimitsUpdatedAt(wh.DB, childUUID)
 	wh.renderApps(w, r, childUUID)
 }
 
