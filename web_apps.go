@@ -492,14 +492,14 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		if limited[i].TotalUsedMinutes != limited[j].TotalUsedMinutes {
 			return limited[i].TotalUsedMinutes > limited[j].TotalUsedMinutes
 		}
-		return limited[i].PackageName < limited[j].PackageName
+		return limited[i].DisplayName < limited[j].DisplayName
 	})
 	sort.Slice(blocked, func(i, j int) bool { return blocked[i].DisplayName < blocked[j].DisplayName })
 	sort.Slice(other, func(i, j int) bool {
 		if other[i].TotalUsedMinutes != other[j].TotalUsedMinutes {
 			return other[i].TotalUsedMinutes > other[j].TotalUsedMinutes
 		}
-		return other[i].PackageName < other[j].PackageName
+		return other[i].DisplayName < other[j].DisplayName
 	})
 
 	var totalUsage int

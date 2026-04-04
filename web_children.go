@@ -131,6 +131,7 @@ func (wh *WebHandler) saveTotalDailyLimit(w http.ResponseWriter, r *http.Request
 			childUUID, GlobalTimePkg, limit,
 		)
 	}
+	touchLimitsUpdatedAt(wh.DB, childUUID)
 
 	var totalLimitMinutes int
 	var hasTotalLimit bool
