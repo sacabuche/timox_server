@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+
+name="promtail"
+description="Promtail log shipper"
+command="/opt/monitoring/promtail-linux-arm64"
+command_args="-config.file=/opt/monitoring/promtail-config.yml"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/promtail/stdout.log"
+error_log="/var/log/promtail/stderr.log"
+
+depend() {
+    need net
+}
+
+start_pre() {
+    mkdir -p /var/log/promtail
+    checkpath --directory --owner daniel:daniel /var/log/promtail
+}

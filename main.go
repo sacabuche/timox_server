@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -26,6 +28,22 @@ var jwtSecret []byte
 
 var buildDate = "dev"
 var commitSHA = "dev"
+
+var logger *slog.Logger
+
+func initLogger() {
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	slog.SetDefault(logger)
+}
+
+const CtxLogger ctxKey = "logger"
+
+func logFromCtx(ctx context.Context) *slog.Logger {
+	if l, ok := ctx.Value(CtxLogger).(*slog.Logger); ok {
+		return l
+	}
+	return slog.Default()
+}
 
 // --- Database setup ---
 
@@ -95,7 +113,6 @@ func generateToken() (string, error) {
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("New request")
 		auth := r.Header.Get("Authorization")
 		if !strings.HasPrefix(auth, "Bearer ") {
 			http.Error(w, "missing or invalid Authorization header", http.StatusUnauthorized)
@@ -137,6 +154,8 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), CtxUserUUID, sub)
 		ctx = context.WithValue(ctx, CtxUserRole, role)
+		ctx = context.WithValue(ctx, CtxLogger, slog.Default().With("user", sub))
+		logFromCtx(ctx).Info("request", "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -267,6 +286,8 @@ func handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("user logged in", "user", user.UUID, "role", user.Role)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"jwt": jwtToken,
@@ -312,6 +333,8 @@ func handleChildLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("user logged in", "user", userUUID, "role", role)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"jwt":  jwtToken,
@@ -344,7 +367,7 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 
 func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 	userUUID := r.Context().Value(CtxUserUUID).(string)
-	fmt.Printf("Getting app limits for user %s\n", userUUID)
+	logFromCtx(r.Context()).Info("get app limits")
 
 	// Apply any pending limits that are past due
 	applyPendingLimits(db, userUUID)
@@ -396,7 +419,7 @@ func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
 
 func handleChildLimitsVersion(w http.ResponseWriter, r *http.Request) {
 	userUUID := r.Context().Value(CtxUserUUID).(string)
-	fmt.Printf("Checking limits version for user %s\n", userUUID)
+	logFromCtx(r.Context()).Info("check limits version")
 
 	var updatedAt sql.NullString
 	if err := db.QueryRow("SELECT limits_updated_at FROM users WHERE uuid = ?", userUUID).Scan(&updatedAt); err != nil {
@@ -414,7 +437,8 @@ func handleChildLimitsVersion(w http.ResponseWriter, r *http.Request) {
 
 func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 	userUUID := r.Context().Value(CtxUserUUID).(string)
-	fmt.Printf("Received app usage report from user %s\n", userUUID)
+	log := logFromCtx(r.Context())
+	log.Info("received usage report")
 	var body []struct {
 		PackageName      string `json:"packageName"`
 		AppName          string `json:"appName"`
@@ -432,8 +456,9 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 
 	today := time.Now().Format("2006-01-02")
 
-	fmt.Printf("Received usage report from user: %+v\n\n", body)
+	log.Info("usage report entries", "count", len(body))
 	for _, entry := range body {
+		log.Info("app usage", "package", entry.PackageName, "app", entry.AppName, "minutes", entry.TotalUsedMinutes)
 		if entry.PackageName == "" {
 			http.Error(w, "packageName is required for each entry", http.StatusBadRequest)
 			return
@@ -506,8 +531,10 @@ func newRouter() chi.Router {
 }
 
 func main() {
+	initLogger()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
+		slog.Info("no .env file found, using environment variables")
 	}
 
 	loadConfig()
@@ -517,6 +544,6 @@ func main() {
 	defer db.Close()
 
 	r := newRouter()
-	fmt.Println("Server listening on :8080")
+	slog.Info("server listening", "addr", ":8080", "build", buildDate, "commit", commitSHA)
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

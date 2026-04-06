@@ -74,3 +74,119 @@ Targets a Linux host (Alpine/OpenRC) reachable via SSH as `freebox`. The binary 
 ```
 
 This builds a static `linux/arm64` binary, copies it to `freebox:/opt/timox/timox-server`, and restarts the `timox` service via OpenRC. Logs are written to `/var/log/timox/`.
+
+## Monitoring
+
+Logs are shipped to **Loki** and visualized in **Grafana**. The stack runs on `freebox` via Docker Compose. Config files are in `monitoring/`.
+
+### Architecture
+
+```
+/var/log/timox/stdout.log  ─┐
+/var/log/timox/stderr.log  ─┴─ Promtail (OpenRC) → Loki:3100 → Grafana:3000
+```
+
+- **Promtail** — runs as an OpenRC service, tails `/var/log/timox/*.log`, ships to Loki
+- **Loki** — stores logs, retains 30 days
+- **Grafana** — UI at `http://freebox:3000` (user: `admin`)
+
+### Logging
+
+The app logs structured JSON to stderr via `slog`. Example:
+
+```json
+{"time":"2026-04-06T10:23:01Z","level":"INFO","msg":"request","method":"GET","path":"/app_limits"}
+```
+
+Use `slog` for all logging:
+
+```go
+slog.Info("something happened", "key", value)
+slog.Error("db query failed", "err", err)
+```
+
+### Install
+
+If Docker is not yet installed on `freebox`:
+
+```sh
+ssh freebox
+doas apk add docker docker-cli-compose
+doas rc-update add docker default
+doas rc-service docker start
+```
+
+Then from your local machine:
+
+```sh
+cd monitoring
+./install.sh              # deploys Loki + Grafana + Promtail to freebox
+./install-logrotate.sh    # sets up log rotation on freebox
+```
+
+After running `install.sh`, on `freebox`:
+
+```sh
+# Install required system packages
+doas apk add gcompat curl
+
+# Create the env file
+echo "GRAFANA_PASSWORD=yourpassword" > /opt/monitoring/.env
+
+# Start the stack
+cd /opt/monitoring && doas docker compose up -d
+
+# Start Promtail
+doas rc-update add promtail && doas rc-service promtail start
+```
+
+> **Note:** `gcompat` is required on Alpine because the Promtail binary is dynamically linked against glibc. Without it, the binary will fail with "not found" even though the file exists.
+
+### Verifying the Stack
+
+Check Promtail is running:
+
+```sh
+rc-service promtail status
+tail -f /var/log/promtail/stderr.log
+```
+
+Check Loki is ready and receiving data:
+
+```sh
+curl -s http://localhost:3100/ready
+curl -s http://localhost:3100/loki/api/v1/labels
+```
+
+The labels response should include `app` and `stream` once logs are flowing.
+
+### Accessing Logs
+
+**Live logs on the server:**
+
+```sh
+ssh freebox "tail -f /var/log/timox/stderr.log"
+```
+
+**Via Grafana UI:**
+
+Open `http://freebox:3000` in your browser, log in as `admin`, then go to Explore → select Loki datasource.
+
+### Querying in Grafana
+
+Go to Explore → Loki datasource:
+
+```logql
+{app="timox"}                          # all logs
+{app="timox", stream="stderr"}         # stderr only
+{app="timox"} | json | level="ERROR"  # errors
+{app="timox"} | json | user="abc-123" # logs for a specific user
+```
+
+### Log Rotation
+
+Raw log files on disk are rotated daily, keeping 3 compressed days. Loki retains its own copy for 30 days independently.
+
+## TODO
+
+- [ ] Set up logrotate on `freebox` for `/var/log/timox/*.log` to prevent unbounded disk growth (suggested: daily rotation, keep 3 days, compressed, using `copytruncate`)

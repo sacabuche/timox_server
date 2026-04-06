@@ -1,0 +1,30 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://localhost:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: timox
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          app: timox
+          env: prod
+          __path__: /var/log/timox/*.log
+
+    pipeline_stages:
+      - match:
+          selector: '{app="timox"}'
+          stages:
+            - regex:
+                # label the file as stdout or stderr based on filename
+                expression: '.*\/(?P<stream>stdout|stderr)\.log'
+                source: filename
+            - labels:
+                stream:
