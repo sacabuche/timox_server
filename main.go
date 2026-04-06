@@ -111,6 +111,37 @@ func generateToken() (string, error) {
 
 // --- Middleware ---
 
+// validateSessionToken parses a JWT string, extracts sub+role, and verifies the user exists in DB.
+func validateSessionToken(tokenStr string) (sub, role string, err error) {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return jwtSecret, nil
+	})
+	if err != nil || !token.Valid {
+		return "", "", fmt.Errorf("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", "", fmt.Errorf("invalid claims")
+	}
+
+	sub, _ = claims.GetSubject()
+	role, _ = claims["role"].(string)
+	if sub == "" || role == "" {
+		return "", "", fmt.Errorf("invalid token claims")
+	}
+
+	var dbRole string
+	if err = db.QueryRow("SELECT role FROM users WHERE uuid = ?", sub).Scan(&dbRole); err != nil || dbRole != role {
+		return "", "", fmt.Errorf("user not found")
+	}
+
+	return sub, role, nil
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
@@ -118,37 +149,10 @@ func authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "missing or invalid Authorization header", http.StatusUnauthorized)
 			return
 		}
-		tokenStr := strings.TrimPrefix(auth, "Bearer ")
 
-		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method")
-			}
-			return jwtSecret, nil
-		})
-		if err != nil || !token.Valid {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, "invalid claims", http.StatusUnauthorized)
-			return
-		}
-
-		sub, _ := claims.GetSubject()
-		role, _ := claims["role"].(string)
-		if sub == "" || role == "" {
-			http.Error(w, "invalid token claims", http.StatusUnauthorized)
-			return
-		}
-
-		// Verify user still exists in DB
-		var dbRole string
-		err = db.QueryRow("SELECT role FROM users WHERE uuid = ?", sub).Scan(&dbRole)
-		if err != nil || dbRole != role {
-			http.Error(w, "user not found", http.StatusUnauthorized)
+		sub, role, err := validateSessionToken(strings.TrimPrefix(auth, "Bearer "))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 

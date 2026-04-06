@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -23,40 +25,19 @@ func webAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		claims, err := parseJWT(cookie.Value)
-		if err != nil {
-			clearSessionCookie(w)
-			http.Redirect(w, r, "/web/login", http.StatusSeeOther)
-			return
-		}
-
-		sub, _ := claims["sub"].(string)
-		role, _ := claims["role"].(string)
-		if sub == "" || role != "parent" {
-			http.Redirect(w, r, "/web/login", http.StatusSeeOther)
-			return
-		}
-
-		// Verify user still exists in DB
-		var dbRole string
-		err = db.QueryRow("SELECT role FROM users WHERE uuid = ?", sub).Scan(&dbRole)
-		if err != nil || dbRole != role {
+		sub, role, err := validateSessionToken(cookie.Value)
+		if err != nil || role != "parent" {
 			clearSessionCookie(w)
 			http.Redirect(w, r, "/web/login", http.StatusSeeOther)
 			return
 		}
 
 		// Sliding session: renew the cookie if it expires within 15 days
-		if exp, ok := claims["exp"].(float64); ok {
-			if time.Until(time.Unix(int64(exp), 0)) < 15*24*time.Hour {
-				if newJWT, err := generateJWT(sub, role); err == nil {
-					setSessionCookie(w, newJWT, true)
-				}
-			}
-		}
+		renewSessionIfExpiringSoon(w, cookie.Value, sub, role)
 
 		ctx := withUserUUID(r.Context(), sub)
 		ctx = withUserRole(ctx, role)
+		ctx = context.WithValue(ctx, CtxLogger, slog.Default().With("user", sub))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -192,6 +173,25 @@ func setSessionCookie(w http.ResponseWriter, jwtStr string, persist bool) {
 		cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
 	}
 	http.SetCookie(w, cookie)
+}
+
+func renewSessionIfExpiringSoon(w http.ResponseWriter, tokenStr, sub, role string) {
+	claims, err := parseJWT(tokenStr)
+	if err != nil {
+		return
+	}
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return
+	}
+	if time.Until(time.Unix(int64(exp), 0)) >= 15*24*time.Hour {
+		return
+	}
+	newJWT, err := generateJWT(sub, role)
+	if err != nil {
+		return
+	}
+	setSessionCookie(w, newJWT, true)
 }
 
 func clearSessionCookie(w http.ResponseWriter) {
