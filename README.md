@@ -43,6 +43,7 @@ Two interfaces on the same port:
 | `web_children.go` | Web dashboard children management |
 | `web_apps.go` | Web dashboard app limits |
 | `migrations.go` + `migrations/` | SQL migration system |
+| `monitoring/` | Grafana + Loki + Promtail stack config and install scripts |
 
 ### Database
 
@@ -95,7 +96,7 @@ Logs are shipped to **Loki** and visualized in **Grafana**. The stack runs on `f
 The app logs structured JSON to stderr via `slog`. Example:
 
 ```json
-{"time":"2026-04-06T10:23:01Z","level":"INFO","msg":"request","method":"GET","path":"/app_limits"}
+{"time":"2026-04-06T10:23:01Z","level":"INFO","msg":"request","method":"GET","path":"/app_limits","user":"abc-123"}
 ```
 
 Use `slog` for all logging:
@@ -104,6 +105,30 @@ Use `slog` for all logging:
 slog.Info("something happened", "key", value)
 slog.Error("db query failed", "err", err)
 ```
+
+**User context in logs**
+
+Authenticated API routes (Bearer JWT) automatically attach the user ID to every log line. This is done in `authMiddleware` — once the token is validated, a `*slog.Logger` with `"user"` pre-attached is stored in the request context. Handlers retrieve it with `logFromCtx(r.Context())`:
+
+```go
+logFromCtx(r.Context()).Info("something happened", "key", value)
+```
+
+Falls back to the global logger (no user field) for unauthenticated routes.
+
+> **Note:** Web routes (`/web/*`) use cookie-based session auth, not `authMiddleware`, so they do not automatically carry user context in logs. Log the user manually there if needed.
+
+**What is logged:**
+
+| Event | Fields |
+|-------|--------|
+| Authenticated request | `method`, `path`, `user` |
+| Parent login | `user`, `role` |
+| Child login | `user`, `role` |
+| App limits fetch | `user` |
+| Limits version check | `user` |
+| Usage report received | `user`, `count` |
+| Per-app usage entry | `user`, `package`, `app`, `minutes` |
 
 ### Install
 
@@ -187,6 +212,3 @@ Go to Explore → Loki datasource:
 
 Raw log files on disk are rotated daily, keeping 3 compressed days. Loki retains its own copy for 30 days independently.
 
-## TODO
-
-- [ ] Set up logrotate on `freebox` for `/var/log/timox/*.log` to prevent unbounded disk growth (suggested: daily rotation, keep 3 days, compressed, using `copytruncate`)
