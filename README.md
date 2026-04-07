@@ -212,3 +212,8 @@ Go to Explore → Loki datasource:
 
 Raw log files on disk are rotated daily, keeping 3 compressed days. Loki retains its own copy for 30 days independently.
 
+
+
+## TODOs
+
+- Verify child timezone: the server uses UTC to determine the current date, but the child device reports cumulative usage since its local midnight. If the device is in a timezone behind UTC, high cumulative values from the end of the previous local day get written under the new server date. The current mitigation is last-reported-wins (no MAX) so the device's reset at local midnight corrects the inflated value. A proper fix would be to accept the device's local date in the `/report` payload and store usage under that date instead.

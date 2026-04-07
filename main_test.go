@@ -941,6 +941,41 @@ func TestReportAppUsage_UpdateExisting(t *testing.T) {
 	}
 }
 
+func TestReportAppUsage_LastReportedWins(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "lastreported")
+	childUUID := childResp["uuid"].(string)
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	// Simulate stale high value (e.g., carried over from previous day at UTC midnight)
+	body1 := `[{"packageName":"com.example.reset","totalUsedMinutes":900}]`
+	req1 := authReq(http.MethodPost, "/report", body1, childJWT)
+	rec1 := httptest.NewRecorder()
+	r.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusNoContent {
+		t.Fatalf("first report: expected 204, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+
+	// Simulate phone reset at local midnight: reports 0, then small values
+	body2 := `[{"packageName":"com.example.reset","totalUsedMinutes":5}]`
+	req2 := authReq(http.MethodPost, "/report", body2, childJWT)
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusNoContent {
+		t.Fatalf("second report: expected 204, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+
+	var totalUsed int
+	db.QueryRow("SELECT total_used_minutes FROM app_usage WHERE user_uuid = ? AND package_name = ?", childUUID, "com.example.reset").Scan(&totalUsed)
+	if totalUsed != 5 {
+		t.Errorf("expected last-reported value 5, got %d (MAX would have kept 900)", totalUsed)
+	}
+}
+
 func TestReportAppUsage_ParentForbidden(t *testing.T) {
 	setupTestDB(t)
 	r := newRouter()

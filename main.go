@@ -476,7 +476,7 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 			`INSERT INTO app_usage (user_uuid, package_name, usage_date, total_used_minutes, app_name)
 			 VALUES (?, ?, ?, ?, ?)
 			 ON CONFLICT(user_uuid, package_name, usage_date) DO UPDATE SET
-			   total_used_minutes = MAX(app_usage.total_used_minutes, excluded.total_used_minutes),
+			   total_used_minutes = excluded.total_used_minutes,
 			   app_name = COALESCE(excluded.app_name, app_usage.app_name)`,
 			userUUID, entry.PackageName, today, entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
 		)
