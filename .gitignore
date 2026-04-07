@@ -5,3 +5,6 @@ tmp/
 *.db-wal
 .env
 .claude/settings.local.json
+/data
+timox-admin
+/cmd/admin/admin
