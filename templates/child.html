@@ -57,7 +57,7 @@
     <div style="display:flex;align-items:center;gap:.75rem">
       <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .DisplayName}}</div>
       <div style="flex:1;min-width:0">
-        <strong style="font-size:.95rem">{{if eq .BlockType 2}}<span style="color:#0288d1" title="{{call $.T "BlockTypeGlobalExempt"}}">✦</span> {{end}}{{.DisplayName}}</strong>
+        <strong style="font-size:.95rem">{{if eq .BlockType 2}}<span style="color:#0288d1" title="{{call $.T "BlockTypeGlobalExempt"}}">✦</span> {{else if eq .BlockType 3}}<span class="text-green" title="{{call $.T "BlockTypeUnrestricted"}}">∞</span> {{end}}{{.DisplayName}}</strong>
         <div style="font-size:.8rem;color:var(--pico-muted-color);margin-top:.1rem">
           {{if eq .BlockType 3}}{{call $.T "BlockTypeUnrestricted"}}
           {{else if .Unlimited}}Used: <strong style="color:var(--pico-color)">{{fmtDur .TotalUsedMinutes}}</strong>{{if .HasPending}} <span style="color:#e65100">→ {{fmtDur .PendingLimit}} ({{.PendingIn}})</span>{{end}}
