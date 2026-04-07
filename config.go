@@ -11,6 +11,8 @@ type Config struct {
 	DBPath       string // optional, default: app_limits.db
 	ResendAPIKey string // required
 	ResendFrom   string // optional, default: onboarding@resend.dev
+	IconsDir     string // optional, default: ./data
+	ServeStatic  bool   // optional, serve /static/ locally (dev only; in prod Caddy handles it)
 }
 
 var cfg Config
@@ -37,6 +39,13 @@ func loadConfig() {
 	if cfg.ResendFrom == "" {
 		cfg.ResendFrom = "onboarding@resend.dev"
 	}
+
+	cfg.IconsDir = os.Getenv("ICONS_DIR")
+	if cfg.IconsDir == "" {
+		cfg.IconsDir = "./data"
+	}
+
+	cfg.ServeStatic = os.Getenv("SERVE_STATIC") == "true"
 
 	if len(missing) > 0 {
 		log.Fatalf("missing required environment variables: %s", strings.Join(missing, ", "))

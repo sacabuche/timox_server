@@ -522,6 +522,17 @@ func newRouter() chi.Router {
 	// Child: Report app usage (JWT required, role=child)
 	r.With(authMiddleware, requireRole("child")).Post("/report", handleReportAppUsage)
 
+	// Icons
+	r.With(authMiddleware, requireRole("child")).Post("/icons/check", handleIconsCheck)
+	r.With(authMiddleware, requireRole("child")).Post("/icons", handleIconUpload)
+	r.Get("/apps/{packages}", handleGetApps)
+
+	// Static file serving (dev only; in prod Caddy serves /static/)
+	if cfg.ServeStatic {
+		iconsDir := http.Dir(cfg.IconsDir)
+		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(iconsDir)))
+	}
+
 	// Web UI (parent dashboard)
 	webHandler := &WebHandler{DB: db}
 	r.Mount("/web", webHandler.Routes())

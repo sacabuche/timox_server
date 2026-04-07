@@ -160,6 +160,64 @@ Report today's app usage. Preserves the higher value on conflict (i.e. usage onl
 
 ---
 
+### POST /icons/check
+Ask the server which packages it still needs icons for. Only packages the child has previously reported via `/report` are considered; any other package names in the request are silently ignored.
+
+The server returns packages that have no approved icon yet **and** for which this child has not already submitted a pending icon.
+
+**Request:**
+```json
+["com.example.app", "com.other.app"]
+```
+**Response 200:**
+```json
+["com.example.app"]
+```
+Returns an empty array `[]` if no icons are needed.
+
+---
+
+### POST /icons
+Upload an app icon. The child device should call `/icons/check` first and only upload icons the server requested. Icons are queued for admin review before becoming publicly visible.
+
+Max request body: **512 KB**. Resize icons to **96×96** before encoding to stay well within the limit.
+
+**Request:**
+```json
+{
+  "packageName": "com.example.app",
+  "appName": "Example App",
+  "iconBase64": "<base64-encoded PNG>"
+}
+```
+**Response 204** (no body)  
+**Errors:** 400 (missing fields, invalid base64), 413 (body too large)
+
+---
+
+### GET /apps/{packages}
+Look up metadata for one or more apps by package name. `{packages}` is a comma-separated list.
+
+Only returns entries for apps that have been approved by an admin (i.e. exist in the `apps` table with a non-null `icon_path`).
+
+**Example:** `GET /apps/com.example.app,com.other.app`
+
+**Response 200:**
+```json
+[
+  {
+    "packageName": "com.example.app",
+    "appName": "Example App",
+    "iconPath": "/static/icons/com.example.app.png"
+  }
+]
+```
+`iconPath` is an absolute path without domain — prepend the server's base URL to construct the full URL. Icons are served by Caddy (not by the Go server) at the path indicated.
+
+Packages not found in the `apps` table are omitted from the response (not an error).
+
+---
+
 ## Parent Endpoints
 Require `Authorization: Bearer <jwt>` with `role=parent`. All child operations verify the parent owns the child.
 
@@ -300,3 +358,4 @@ Remove an app limit entirely (also clears any pending increase for that app).
 - **Pending limits**: only created for increases on `BlockTypeNormal` limits when delayed changes is on. Decreases, new limits, and block-type changes are always immediate.
 - **Schedules**: times are stored/returned as `HH:MM` strings (24-hour). A schedule blocks the app during `blockingStartTime`–`blockingEndTime`. Overnight ranges (e.g. 22:00–07:00) are supported.
 - **JWT expiry**: 30 days from issue.
+- **App icons**: stored as PNG files on disk (`$ICONS_DIR/icons/{packageName}.png`). Served statically by Caddy at `/static/icons/`. Pending (unreviewed) icons live at `$ICONS_DIR/pending-icons/{userUUID}-{packageName}.png` and are served at `/static/pending-icons/` (admin use only).

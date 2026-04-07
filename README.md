@@ -7,6 +7,7 @@ Go backend for the Timox parental time management system. Provides a REST API fo
 - JWT-based auth (email → one-time token → JWT)
 - Parent/child role separation
 - App usage limit management
+- App icon upload with admin review queue
 - Web dashboard for parents
 - SQLite storage (no CGO, uses `modernc.org/sqlite`)
 
@@ -26,7 +27,7 @@ Two interfaces on the same port:
 
 **REST API** (consumed by child Flutter app)
 - Auth: JWT Bearer tokens (HS256), role-based (`parent` / `child`)
-- Routes: `/users`, `/auth/*`, `/me`, `/app_limits`, `/children/*`, `/report`
+- Routes: `/users`, `/auth/*`, `/me`, `/app_limits`, `/children/*`, `/report`, `/icons/*`, `/apps/*`
 
 **Web UI** (`/web/*`)
 - Server-rendered HTML dashboard for parents
@@ -42,12 +43,13 @@ Two interfaces on the same port:
 | `web_auth.go` | Web dashboard auth handlers |
 | `web_children.go` | Web dashboard children management |
 | `web_apps.go` | Web dashboard app limits |
+| `icons.go` | App icon check, upload, and lookup handlers |
 | `migrations.go` + `migrations/` | SQL migration system |
 | `monitoring/` | Grafana + Loki + Promtail stack config and install scripts |
 
 ### Database
 
-SQLite with tables: `users`, `app_limits`, `auth_tokens`, `parent_children`, `app_usage`. Tests use an in-memory DB (`:memory:`).
+SQLite with tables: `users`, `app_limits`, `auth_tokens`, `parent_children`, `app_usage`, `apps`, `pending_icons`. Tests use an in-memory DB (`:memory:`).
 
 ## Deployment
 
@@ -61,12 +63,70 @@ Targets a Linux host (Alpine/OpenRC) reachable via SSH as `freebox`. The binary 
   ```
   JWT_SECRET=your-strong-secret-here
   RESEND_API_KEY=re_...
+  ICONS_DIR=/opt/timox/data
   ```
 - OpenRC service installed on the remote:
   ```sh
   scp timox.openrc freebox:/etc/init.d/timox
   ssh freebox "chmod +x /etc/init.d/timox && doas rc-update add timox default"
   ```
+
+### Caddy
+
+Caddy acts as a reverse proxy in front of the Go server and also serves app icon files directly.
+
+**Install on Alpine:**
+```sh
+ssh freebox
+doas apk add caddy
+doas rc-update add caddy default
+doas rc-service caddy start
+```
+
+**Caddyfile** (`/etc/caddy/Caddyfile`):
+```
+{
+  admin off
+}
+
+drp.freeboxos.fr {
+    # Serve icon files directly — strip /static prefix so
+    # /static/icons/com.example.app.png → /opt/timox/data/icons/com.example.app.png
+    handle_path /static/* {
+        root * /opt/timox/data
+        file_server
+    }
+
+    # Everything else proxied to the Go server
+    reverse_proxy localhost:8080
+}
+```
+
+The `handle_path` directive strips the `/static` prefix before resolving the file, so `ICONS_DIR` on the Go server must match the `root` path set here (`/opt/timox/data`).
+
+After editing the Caddyfile:
+```sh
+doas caddy fmt --overwrite /etc/caddy/Caddyfile
+doas rc-service caddy reload
+```
+
+Make sure the icon directories exist and are readable by the `caddy` user:
+```sh
+doas mkdir -p /opt/timox/data/icons /opt/timox/data/pending-icons
+doas chown -R caddy:caddy /opt/timox/data
+```
+
+The Go server process also writes to `/opt/timox/data`, so both the `timox` and `caddy` users need access. Add the `timox` user to the `caddy` group, then set group ownership and permissions:
+```sh
+doas adduser timox caddy
+doas chown -R timox:caddy /opt/timox/data
+doas chmod -R 775 /opt/timox/data
+```
+
+Verify both users are in the same group before restarting services:
+```sh
+grep caddy /etc/group   # should list both caddy and timox
+```
 
 ### Deploy
 
