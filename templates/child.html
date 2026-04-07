@@ -52,62 +52,49 @@
       {{if .NextDate}}hx-get="/web/children/{{.ChildUUID}}/apps?date={{.NextDate}}" hx-target="#apps-{{.ChildUUID}}" hx-swap="innerHTML"{{end}}>›</button>
   </div>
   {{if or .Limited .Blocked .Other}}
-  {{range .Limited}}
-  <article style="padding:.6rem .8rem;margin-bottom:.3rem">
-    <div style="display:flex;align-items:center;gap:.75rem">
-      <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .DisplayName}}</div>
-      <div style="flex:1;min-width:0">
-        <strong style="font-size:.95rem">{{if eq .BlockType 2}}<span style="color:#0288d1" title="{{call $.T "BlockTypeGlobalExempt"}}">✦</span> {{else if eq .BlockType 3}}<span class="text-green" title="{{call $.T "BlockTypeUnrestricted"}}">∞</span> {{end}}{{.DisplayName}}</strong>
-        <div style="font-size:.8rem;color:var(--pico-muted-color);margin-top:.1rem">
-          {{if eq .BlockType 3}}{{call $.T "BlockTypeUnrestricted"}}
-          {{else if .Unlimited}}Used: <strong style="color:var(--pico-color)">{{fmtDur .TotalUsedMinutes}}</strong>{{if .HasPending}} <span style="color:#e65100">→ {{fmtDur .PendingLimit}} ({{.PendingIn}})</span>{{end}}
-          {{else}}Used: <strong style="color:var(--pico-color)">{{fmtDur .TotalUsedMinutes}}</strong> / Limit: <strong style="color:var(--pico-color)">{{fmtDur .DailyLimitMinutes}}</strong>{{if .HasPending}} <span style="color:#e65100">→ {{fmtDur .PendingLimit}} ({{.PendingIn}})</span>{{end}}{{end}}
-          {{if .HasSchedule}}<br>{{call $.T "ScheduleLabel"}}: {{.ScheduleStart}}–{{.ScheduleEnd}}{{end}}
-        </div>
-      </div>
-      <span style="font-size:.82rem;white-space:nowrap;flex-shrink:0;text-align:right">
-        {{if eq .BlockType 3}}<span style="font-size:1.4rem;color:var(--pico-muted-color)">∞</span>
-        {{else if .UnlockTime}}<span style="color:var(--pico-color-orange-450)">🕐 {{.UnlockTime}}</span>
-        {{else if .OverLimit}}<span class="text-red">{{call $.T "OverLimit"}}: {{sub 0 .Remaining | fmtDur}}</span>
-        {{else if .Unlimited}}<span style="font-size:1.4rem;color:var(--pico-muted-color)">∞</span>
-        {{else}}<span class="text-green">{{fmtMin .Remaining}} min</span>{{end}}
-      </span>
-      <button class="outline secondary" style="margin:0;padding:.2rem .4rem;font-size:.8rem;flex-shrink:0" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "EditButton"}}</button>
-    </div>
-  </article>
-  {{end}}
-  {{range .Blocked}}
-  <article style="padding:.6rem .8rem;margin-bottom:.3rem">
-    <div style="display:flex;align-items:center;gap:.75rem">
-      <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .DisplayName}}</div>
-      <div style="flex:1;min-width:0">
-        <strong style="font-size:.95rem"><span class="text-red" title="{{call $.T "Blocked"}}">⊘</span> {{.DisplayName}}</strong>
-      </div>
-      <span class="text-red" style="font-size:.82rem;white-space:nowrap;flex-shrink:0">{{call $.T "Blocked"}}</span>
-      <button class="outline secondary" style="margin:0;padding:.2rem .4rem;font-size:.8rem;flex-shrink:0" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "EditButton"}}</button>
-    </div>
-  </article>
-  {{end}}
-  {{range .Other}}
-  <article style="padding:.6rem .8rem;margin-bottom:.3rem">
-    <div style="display:flex;align-items:center;gap:.75rem">
-      <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .DisplayName}}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.5rem">
-          <strong style="font-size:.95rem">{{.DisplayName}}</strong>
-          {{if .UnlockTime}}<span style="font-size:.82rem;white-space:nowrap;color:var(--pico-color-orange-450)">🕐 {{.UnlockTime}}</span>{{end}}
-        </div>
-        <div style="font-size:.8rem;color:var(--pico-muted-color);margin-top:.1rem">
-          {{if .UsedToday}}{{fmtMin .TotalUsedMinutes}} min · {{end}}{{call $.T "NoLimit"}}
-        </div>
-      </div>
-      <button class="outline secondary" style="margin:0;padding:.2rem .4rem;font-size:.8rem;flex-shrink:0" hx-get="/web/children/{{$.ChildUUID}}/limits/{{.PackageName}}/edit" hx-target="#limit-dialog-content-{{$.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{$.ChildUUID}}').showModal()">{{call $.T "SetButton"}}</button>
-    </div>
-  </article>
-  {{end}}
+  {{range .Limited}}{{template "app-card" (dict "App" . "ChildUUID" $.ChildUUID "T" $.T)}}{{end}}
+  {{range .Blocked}}{{template "app-card" (dict "App" . "ChildUUID" $.ChildUUID "T" $.T)}}{{end}}
+  {{range .Other}}{{template "app-card" (dict "App" . "ChildUUID" $.ChildUUID "T" $.T)}}{{end}}
   {{else}}
     <p><small class="muted">{{call .T "NoAppsTracked"}}</small></p>
   {{end}}
+{{end}}
+
+{{define "app-card"}}
+<article style="padding:.6rem .8rem;margin-bottom:.3rem">
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .App.DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .App.DisplayName}}</div>
+    <div style="flex:1;min-width:0">
+      <strong style="font-size:.95rem">
+        {{if eq .App.BlockType 1}}<span class="text-red" title="{{call .T "Blocked"}}">⊘</span>
+        {{else if eq .App.BlockType 2}}<span style="color:#0288d1" title="{{call .T "BlockTypeGlobalExempt"}}">✦</span>
+        {{else if eq .App.BlockType 3}}<span class="text-green" title="{{call .T "BlockTypeUnrestricted"}}">∞</span>
+        {{end}} {{.App.DisplayName}}
+      </strong>
+      <div style="font-size:.8rem;color:var(--pico-muted-color);margin-top:.1rem">
+        {{if eq .App.BlockType 1}}
+        {{else if eq .App.BlockType 3}}{{call .T "BlockTypeUnrestricted"}}
+        {{else if .App.Unlimited}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
+        {{else if .App.HasLimit}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong> / Limit: <strong style="color:var(--pico-color)">{{fmtDur .App.DailyLimitMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
+        {{else}}{{if .App.UsedToday}}{{fmtMin .App.TotalUsedMinutes}} min · {{end}}{{call .T "NoLimit"}}
+        {{end}}
+        {{if .App.HasSchedule}}<br>{{call .T "ScheduleLabel"}}: {{.App.ScheduleStart}}–{{.App.ScheduleEnd}}{{end}}
+      </div>
+    </div>
+    <span style="font-size:.82rem;white-space:nowrap;flex-shrink:0;text-align:right">
+      {{if eq .App.BlockType 1}}<span class="text-red">{{call .T "Blocked"}}</span>
+      {{else if eq .App.BlockType 3}}<span style="font-size:1.4rem;color:var(--pico-muted-color)">∞</span>
+      {{else if .App.UnlockTime}}<span style="color:var(--pico-color-orange-450)">🕐 {{.App.UnlockTime}}</span>
+      {{else if .App.OverLimit}}<span class="text-red">{{call .T "OverLimit"}}: {{sub 0 .App.Remaining | fmtDur}}</span>
+      {{else if .App.Unlimited}}<span style="font-size:1.4rem;color:var(--pico-muted-color)">∞</span>
+      {{else if .App.HasLimit}}<span class="text-green">{{fmtMin .App.Remaining}} min</span>
+      {{end}}
+    </span>
+    <button class="outline secondary" style="margin:0;padding:.2rem .4rem;font-size:.8rem;flex-shrink:0" hx-get="/web/children/{{.ChildUUID}}/limits/{{.App.PackageName}}/edit" hx-target="#limit-dialog-content-{{.ChildUUID}}" hx-swap="innerHTML" hx-on::after-request="document.getElementById('limit-dialog-{{.ChildUUID}}').showModal()">
+      {{if .App.HasLimit}}{{call .T "EditButton"}}{{else}}{{call .T "SetButton"}}{{end}}
+    </button>
+  </div>
+</article>
 {{end}}
 
 {{define "limit-edit-modal"}}
