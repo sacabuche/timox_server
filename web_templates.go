@@ -23,6 +23,19 @@ var funcMap = template.FuncMap{
 		}
 		return fmt.Sprintf("%dh%02d", m/60, m%60)
 	},
+	"fmtDur": func(m int) string {
+		if m < 60 {
+			return fmt.Sprintf("%d min", m)
+		}
+		return fmt.Sprintf("%dh %02dm", m/60, m%60)
+	},
+	"avatarColor": func(s string) string {
+		colors := []string{"#1565c0", "#6a1b9a", "#2e7d32", "#c62828", "#e65100", "#00838f", "#4527a0", "#558b2f"}
+		if s == "" {
+			return colors[0]
+		}
+		return colors[int([]rune(s)[0])%len(colors)]
+	},
 	"dict": func(pairs ...interface{}) map[string]interface{} {
 		m := make(map[string]interface{}, len(pairs)/2)
 		for i := 0; i+1 < len(pairs); i += 2 {

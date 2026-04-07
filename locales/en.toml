@@ -232,6 +232,9 @@ other = """Pending increase to {{.Limit}} min (applies {{.Date}})"""
 [ScheduleColumnHeader]
 other = """Blocking Schedule"""
 
+[ScheduleLabel]
+other = """Blocking"""
+
 [ScheduleSection]
 other = """Blocking Schedule (optional)"""
 

@@ -232,6 +232,9 @@ other = """Augmentation en attente à {{.Limit}} min (applicable le {{.Date}})""
 [ScheduleColumnHeader]
 other = """Horaire de blocage"""
 
+[ScheduleLabel]
+other = """Blocage"""
+
 [ScheduleSection]
 other = """Horaire de blocage (optionnel)"""
 
