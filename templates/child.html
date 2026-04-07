@@ -63,7 +63,11 @@
 {{define "app-card"}}
 <article style="padding:.6rem .8rem;margin-bottom:.3rem">
   <div style="display:flex;align-items:center;gap:.75rem">
+    {{if .App.IconPath}}
+    <img src="{{.App.IconPath}}" alt="" style="width:40px;height:40px;border-radius:10px;flex-shrink:0;object-fit:cover">
+    {{else}}
     <div style="width:40px;height:40px;border-radius:50%;background:{{avatarColor .App.DisplayName}};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:bold;font-size:1.1rem">{{printf "%.1s" .App.DisplayName}}</div>
+    {{end}}
     <div style="flex:1;min-width:0">
       <strong style="font-size:.95rem">
         {{if eq .App.BlockType 1}}<span class="text-red" title="{{call .T "Blocked"}}">⊘</span>

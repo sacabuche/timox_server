@@ -46,6 +46,7 @@ Two interfaces on the same port:
 | `icons.go` | App icon check, upload, and lookup handlers |
 | `migrations.go` + `migrations/` | SQL migration system |
 | `monitoring/` | Grafana + Loki + Promtail stack config and install scripts |
+| `cmd/admin/` | Local admin tool for icon review (see [Admin Tool](#admin-tool)) |
 
 ### Database
 
@@ -135,6 +136,31 @@ grep caddy /etc/group   # should list both caddy and timox
 ```
 
 This builds a static `linux/arm64` binary, copies it to `freebox:/opt/timox/timox-server`, and restarts the `timox` service via OpenRC. Logs are written to `/var/log/timox/`.
+
+## Admin Tool
+
+`cmd/admin` is a local-only HTTP server for reviewing pending app icons. It connects directly to the SQLite DB and filesystem — no auth, no JWT. Access is controlled entirely by the SSH tunnel.
+
+### Usage
+
+**Run locally** (dev, uses local DB and `./data`):
+
+```sh
+make admin
+```
+
+**Run on the server** (builds for `linux/arm64`, deploys, opens SSH tunnel, cleans up on exit):
+
+```sh
+make admin-remote
+```
+
+`admin-remote` compiles the binary, copies it to `freebox:/opt/timox/timox-admin`, starts it there, and opens an SSH tunnel so `http://localhost:9191` works in your browser. When you hit Ctrl+C the remote process is killed and the local binary is deleted.
+
+Then open `http://localhost:9191` in your browser. The UI shows all pending icons as a card grid with **Approve** and **Reject** buttons.
+
+- **Approve** — moves the file from `pending-icons/` to `icons/`, sets `icon_path` in the `apps` table, removes the `pending_icons` record.
+- **Reject** — deletes the file and removes the `pending_icons` record.
 
 ## Monitoring
 

@@ -143,6 +143,8 @@ func handleIconUpload(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
+	logFromCtx(r.Context()).Info("icon uploaded", "package", body.PackageName, "app", body.AppName, "bytes", len(iconBytes))
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -13,7 +13,7 @@ Alternatives:
 |---------|-----------|-------|
 | Brevo | 300/day, 9k/month | Higher free volume |
 | Postmark | 100/month | Best deliverability, very low free tier |
-| AWS SES | 62k/month (from Fly) | Cheapest at scale, more setup |
+| AWS SES | 62k/month | Cheapest at scale, more setup |
 
 ## Deploying the Server
 
@@ -37,14 +37,6 @@ Alternatives:
 - Run binary with systemd
 - **Pros**: actually free, reliable datacenter
 - **Cons**: complex UI, requires credit card to sign up
-
-### Option 4 — Fly.io (~$2–5/month)
-- Single machine (`max_machines_running = 1`) required for SQLite
-- Persistent volume at `/data` for the SQLite DB
-- `fly volumes create timox_data --size 1 --region ams` before first deploy
-- `fly deploy` / `fly secrets set JWT_SECRET=...`
-- **Pros**: easy deploys from GitHub, managed HTTPS
-- **Cons**: more expensive per resource than a VPS
 
 ### Database Notes
 - SQLite with WAL mode + NORMAL synchronous (already configured at startup)

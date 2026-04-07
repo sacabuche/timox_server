@@ -320,6 +320,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		PackageName       string
 		AppName           string
 		DisplayName       string
+		IconPath          string
 		TotalUsedMinutes  int
 		UsedToday         bool
 		DailyLimitMinutes int
@@ -371,15 +372,21 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		SELECT al.package_name, al.daily_limit_minutes, al.block_type,
 		       (SELECT app_name FROM app_usage
 		        WHERE user_uuid = al.user_uuid AND package_name = al.package_name AND app_name IS NOT NULL
-		        ORDER BY usage_date DESC LIMIT 1)
-		FROM app_limits al WHERE al.user_uuid = ? AND al.package_name != ?`, childUUID, GlobalTimePkg)
+		        ORDER BY usage_date DESC LIMIT 1),
+		       a.icon_path
+		FROM app_limits al
+		LEFT JOIN apps a ON a.package_name = al.package_name
+		WHERE al.user_uuid = ? AND al.package_name != ?`, childUUID, GlobalTimePkg)
 	if limRows != nil {
 		defer limRows.Close()
 		for limRows.Next() {
 			a := &AppRow{}
-			var appName sql.NullString
-			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.BlockType, &appName)
+			var appName, iconPath sql.NullString
+			limRows.Scan(&a.PackageName, &a.DailyLimitMinutes, &a.BlockType, &appName, &iconPath)
 			a.AppName = appName.String
+			if iconPath.String != "" {
+				a.IconPath = "/static/" + iconPath.String
+			}
 			a.HasLimit = true
 			apps[a.PackageName] = a
 		}
@@ -433,8 +440,10 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 			COALESCE(MAX(CASE WHEN au.usage_date = ? THEN au.total_used_minutes END), 0) AS today_minutes,
 			(SELECT app_name FROM app_usage
 			 WHERE user_uuid = ? AND package_name = au.package_name AND app_name IS NOT NULL
-			 ORDER BY usage_date DESC LIMIT 1) AS app_name
+			 ORDER BY usage_date DESC LIMIT 1) AS app_name,
+			a.icon_path
 		FROM app_usage au
+		LEFT JOIN apps a ON a.package_name = au.package_name
 		WHERE au.user_uuid = ?
 		GROUP BY au.package_name`, today, childUUID, childUUID)
 	if usageRows != nil {
@@ -442,17 +451,24 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		for usageRows.Next() {
 			var pkg string
 			var used int
-			var appName sql.NullString
-			usageRows.Scan(&pkg, &used, &appName)
+			var appName, iconPath sql.NullString
+			usageRows.Scan(&pkg, &used, &appName, &iconPath)
 			usedToday := used > 0
+			iconURL := ""
+			if iconPath.String != "" {
+				iconURL = "/static/" + iconPath.String
+			}
 			if a, ok := apps[pkg]; ok {
 				a.TotalUsedMinutes = used
 				a.UsedToday = usedToday
 				if appName.String != "" {
 					a.AppName = appName.String
 				}
+				if a.IconPath == "" {
+					a.IconPath = iconURL
+				}
 			} else {
-				apps[pkg] = &AppRow{PackageName: pkg, AppName: appName.String, TotalUsedMinutes: used, UsedToday: usedToday}
+				apps[pkg] = &AppRow{PackageName: pkg, AppName: appName.String, TotalUsedMinutes: used, UsedToday: usedToday, IconPath: iconURL}
 			}
 		}
 	}
