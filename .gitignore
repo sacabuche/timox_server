@@ -4,3 +4,4 @@ tmp/
 *.db-shm
 *.db-wal
 .env
+.claude/settings.local.json
