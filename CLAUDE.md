@@ -6,8 +6,9 @@
 
 ## Deployment
 
-- The server runs on a Freebox home server, accessible via the SSH alias `freebox`.
+- The server runs on a Freebox home server (Alpine Linux), accessible via the SSH alias `freebox`.
 - `make admin-remote` builds the admin tool for `linux/arm64`, deploys it to `freebox:/opt/timox/timox-admin`, opens an SSH tunnel on port 9191, and cleans up on exit.
+- Alpine uses OpenRC (no sudo, no systemd). To restart a service: `su -c "rc-service <name> restart"`.
 
 ## Static Files / Icons
 

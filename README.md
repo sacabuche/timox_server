@@ -202,6 +202,14 @@ make admin-remote
 
 `admin-remote` compiles the binary, copies it to `freebox:/opt/timox/timox-admin`, starts it there, and opens an SSH tunnel so `http://localhost:9191` works in your browser. When you hit Ctrl+C the remote process is killed and the local binary is deleted.
 
+**SSH tunnel prerequisite:** `AllowTcpForwarding yes` must be set in `/etc/ssh/sshd_config` on `freebox`, otherwise the tunnel is rejected with "administratively prohibited". To enable it and restart sshd on Alpine (no sudo, uses OpenRC):
+
+```sh
+ssh freebox
+# edit /etc/ssh/sshd_config: set AllowTcpForwarding yes
+su -c "rc-service sshd restart"
+```
+
 Then open `http://localhost:9191` in your browser. The UI shows all pending icons as a card grid with **Approve** and **Reject** buttons.
 
 - **Approve** — moves the file from `pending-icons/` to `icons/`, sets `icon_path` in the `apps` table, removes the `pending_icons` record.
