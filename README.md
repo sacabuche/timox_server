@@ -33,6 +33,51 @@ Two interfaces on the same port:
 - Server-rendered HTML dashboard for parents
 - Cookie-based auth (`session_jwt`)
 
+## Front-End
+
+The web UI is server-rendered HTML using Go's `html/template` package, [Pico CSS](https://picocss.com/) for styling, and [htmx](https://htmx.org/) for partial page updates — no build step, no JavaScript framework.
+
+### Templates (`templates/`)
+
+All templates are embedded into the binary via `//go:embed` and parsed once at startup. There are two rendering helpers in `web_templates.go`:
+
+- `renderPage` — wraps a content template inside `layout.html` and writes a full HTML page.
+- `renderPartial` — renders a named template fragment directly (used by htmx endpoints).
+
+| File | Templates defined | Purpose |
+|------|-------------------|---------|
+| `layout.html` | `layout` | Outer HTML shell: `<head>`, Pico CSS, htmx script, global styles, language switcher |
+| `auth.html` | `login-page`, `register-page`, `token-step`, `email-form`, `login-error` | Login and registration flow |
+| `dashboard.html` | `dashboard-page`, `children-list` | Parent dashboard; `children-list` is refreshed via htmx |
+| `child.html` | `child-page`, `child-apps`, `app-card`, `limit-edit-modal`, `limit-confirm-delete` | Per-child view; `child-apps` is polled every 30 s via htmx; `app-card` is a reusable sub-template |
+| `child-settings.html` | `child-settings-page`, `global-schedule-form`, `delayed-changes-toggle`, `child-token`, `child-token-button`, `total-daily-limit-form` | Child settings: global schedule, delayed changes, pairing token, total screen-time cap |
+| `child-welcome.html` | `child-welcome-page`, `welcome-token-active`, `welcome-token-expired` | One-time pairing page shown to the child device |
+
+### Template Functions (`web_templates.go`)
+
+Custom functions available in all templates via `funcMap`:
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `today` | `() string` | Returns current date as `YYYY-MM-DD` |
+| `sub` | `(a, b int) int` | Integer subtraction |
+| `fmtMin` | `(m int) string` | Formats minutes compactly: `90` → `1h30` |
+| `fmtDur` | `(m int) string` | Formats minutes verbosely: `90` → `1h 30m` |
+| `avatarColor` | `(s string) string` | Deterministic color from a string (for child avatars) |
+| `dict` | `(...interface{}) map` | Builds an ad-hoc map for passing multiple values to sub-templates |
+
+### Internationalisation (`i18n.go`, `locales/`)
+
+All user-visible strings are externalised. Locales are embedded via `//go:embed` and loaded at startup into a `go-i18n` bundle. Supported languages: **en**, **es**, **fr**.
+
+Language selection priority (highest first):
+1. `?lang=` query parameter — sets a `lang` cookie and redirects
+2. `lang` cookie
+3. `Accept-Language` request header
+4. Falls back to English
+
+Each template receives a `T` function (`func(key string, args ...interface{}) string`) injected by `renderPage`/`renderPartial`. Call it as `{{call .T "KeyName"}}` or `{{call .T "KeyName" .SomeData}}` for parameterised strings.
+
 ### Key Files
 
 | File | Description |

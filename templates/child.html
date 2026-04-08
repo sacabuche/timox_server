@@ -77,7 +77,7 @@
       </strong>
       <div style="font-size:.8rem;color:var(--pico-muted-color);margin-top:.1rem">
         {{if eq .App.BlockType 1}}
-        {{else if eq .App.BlockType 3}}{{call .T "BlockTypeUnrestricted"}}
+        {{else if eq .App.BlockType 3}}{{if .App.UsedToday}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong> · {{end}}{{call .T "BlockTypeUnrestricted"}}
         {{else if .App.Unlimited}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
         {{else if .App.HasLimit}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong> / Limit: <strong style="color:var(--pico-color)">{{fmtDur .App.DailyLimitMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
         {{else}}{{if .App.UsedToday}}{{fmtMin .App.TotalUsedMinutes}} min · {{end}}{{call .T "NoLimit"}}
