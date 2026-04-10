@@ -59,6 +59,7 @@ func (wh *WebHandler) Routes() chi.Router {
 		r.Post("/children/{childUUID}/global-schedule", wh.saveChildGlobalSchedule)
 		r.Post("/children/{childUUID}/delayed-changes", wh.toggleDelayedChanges)
 		r.Post("/children/{childUUID}/total-limit", wh.saveTotalDailyLimit)
+		r.Post("/children/{childUUID}/timezone", wh.saveTimezone)
 	})
 
 	return r

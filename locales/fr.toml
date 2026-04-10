@@ -328,3 +328,15 @@ other = """Actif : {{.Minutes}} min/jour au total"""
 
 [TotalLimitRemaining]
 other = """restantes"""
+
+[TimezoneSection]
+other = """Fuseau horaire de l'enfant"""
+
+[TimezoneHelp]
+other = """Définissez le fuseau horaire de l'appareil de l'enfant pour enregistrer correctement les dates d'utilisation. Utilisez le format IANA, ex. America/New_York."""
+
+[TimezoneLabel]
+other = """Fuseau horaire"""
+
+[ClockManipulationWarning]
+other = """⚠ L'horloge de l'appareil est décalée de {{.Minutes}} minutes — l'enfant a peut-être modifié l'heure de son téléphone."""

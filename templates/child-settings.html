@@ -39,6 +39,14 @@
     </div>
   </section>
 
+  <section>
+    <h4>{{call .T "TimezoneSection"}}</h4>
+    <p><small class="muted">{{call .T "TimezoneHelp"}}</small></p>
+    <div id="timezone-{{.Child.UUID}}">
+      {{template "timezone-form" .}}
+    </div>
+  </section>
+
   <section style="margin-top: 4rem; border-top: 1px solid var(--pico-muted-border-color); padding-top: 2rem">
     <dialog id="delete-dialog-{{.Child.UUID}}" onclick="if(event.target===this)this.close()">
       <article>
@@ -132,6 +140,76 @@
 
 {{define "child-token-button"}}
   <button hx-post="/web/children/{{.ChildUUID}}/token" hx-target="#token-{{.ChildUUID}}" hx-swap="innerHTML">{{call .T "GenerateToken"}}</button>
+{{end}}
+
+{{define "timezone-form"}}
+  <form hx-post="/web/children/{{.Child.UUID}}/timezone" hx-target="#timezone-{{.Child.UUID}}" hx-swap="innerHTML">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <label style="flex:1;min-width:200px;margin:0">
+        <small>{{call .T "TimezoneLabel"}}</small>
+        <select name="timezone" id="tz-select-{{.Child.UUID}}" style="margin-top:0.25rem;margin-bottom:0">
+          <option value=""></option>
+        </select>
+      </label>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-shrink:0">
+        <button type="submit" style="width:auto;margin:0">{{call .T "SaveButton2"}}</button>
+        {{if .Timezone}}
+        <button type="button" class="outline secondary" style="width:auto;margin:0"
+          hx-post="/web/children/{{.Child.UUID}}/timezone"
+          hx-vals='{"timezone":""}'
+          hx-target="#timezone-{{.Child.UUID}}" hx-swap="innerHTML">{{call .T "ClearSchedule"}}</button>
+        {{end}}
+      </div>
+    </div>
+    {{if .Timezone}}<p style="margin-top:0.5rem;margin-bottom:0"><small style="color:white">🌍 {{.Timezone}}</small></p>{{end}}
+  </form>
+  <script>
+    (function() {
+      var sel = document.getElementById('tz-select-{{.Child.UUID}}');
+      var saved = '{{.Timezone}}';
+      // Fall back to parent's browser timezone when no child timezone is saved yet.
+      var preferred = saved || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var zones;
+      try { zones = Intl.supportedValuesOf('timeZone'); } catch(e) { return; }
+
+      var now = new Date();
+      var utcMs = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+      var offsetCache = {};
+      function utcOffsetMinutes(tz) {
+        if (tz in offsetCache) return offsetCache[tz];
+        try {
+          offsetCache[tz] = (new Date(now.toLocaleString('en-US', { timeZone: tz })).getTime() - utcMs) / 60000;
+        } catch(e) { offsetCache[tz] = 0; }
+        return offsetCache[tz];
+      }
+
+      // Group by continent/region (everything before the first '/').
+      var groups = {};
+      zones.forEach(function(tz) {
+        var slash = tz.indexOf('/');
+        var region = slash >= 0 ? tz.slice(0, slash) : 'Other';
+        (groups[region] = groups[region] || []).push(tz);
+      });
+
+      // Sort regions by the UTC offset of their first entry (negative → positive).
+      Object.keys(groups).sort(function(a, b) {
+        return utcOffsetMinutes(groups[a][0]) - utcOffsetMinutes(groups[b][0]);
+      }).forEach(function(region) {
+        var og = document.createElement('optgroup');
+        og.label = region;
+        // Sort zones within each region by UTC offset as well.
+        groups[region].sort(function(a, b) { return utcOffsetMinutes(a) - utcOffsetMinutes(b); });
+        groups[region].forEach(function(tz) {
+          var opt = document.createElement('option');
+          opt.value = tz;
+          opt.textContent = tz.replace(/_/g, ' ');
+          if (tz === preferred) opt.selected = true;
+          og.appendChild(opt);
+        });
+        sel.appendChild(og);
+      });
+    })();
+  </script>
 {{end}}
 
 {{define "total-daily-limit-form"}}

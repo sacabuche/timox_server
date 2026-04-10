@@ -328,3 +328,15 @@ other = """Active: {{.Minutes}} min/day total"""
 
 [TotalLimitRemaining]
 other = """left"""
+
+[TimezoneSection]
+other = """Child Timezone"""
+
+[TimezoneHelp]
+other = """Set the child's device timezone so usage dates are recorded correctly. Use IANA format, e.g. America/New_York."""
+
+[TimezoneLabel]
+other = """Timezone"""
+
+[ClockManipulationWarning]
+other = """⚠ Device clock is off by {{.Minutes}} minutes — the child may have changed their phone's time."""

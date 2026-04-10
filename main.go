@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"math/big"
@@ -439,29 +440,93 @@ func handleChildLimitsVersion(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"updatedAt": nil})
 }
 
+type reportEntry struct {
+	PackageName      string `json:"packageName"`
+	AppName          string `json:"appName"`
+	TotalUsedMinutes int    `json:"totalUsedMinutes"`
+}
+
+// parseReportBody accepts both the legacy bare-array format and the new
+// envelope format {"timestamp":"<RFC3339>","apps":[...]}.
+// It returns the entries, the usage date to store (YYYY-MM-DD in the device's
+// local timezone when a timestamp is present, UTC date otherwise), and — when a
+// timestamp was supplied — a pointer to the clock skew in minutes so the caller
+// can persist it.
+func parseReportBody(body []byte) (entries []reportEntry, usageDate string, skew *int, err error) {
+	usageDate = time.Now().UTC().Format("2006-01-02")
+
+	trimmed := strings.TrimSpace(string(body))
+	if len(trimmed) == 0 {
+		return nil, "", nil, fmt.Errorf("empty body")
+	}
+
+	if trimmed[0] != '{' {
+		// Legacy format: bare JSON array.
+		if err = json.Unmarshal(body, &entries); err != nil {
+			return nil, "", nil, fmt.Errorf("invalid JSON body, expected array or {timestamp,apps} object")
+		}
+		return entries, usageDate, nil, nil
+	}
+
+	// New envelope format.
+	var envelope struct {
+		Timestamp string        `json:"timestamp"`
+		Apps      []reportEntry `json:"apps"`
+	}
+	if err = json.Unmarshal(body, &envelope); err != nil {
+		return nil, "", nil, fmt.Errorf("invalid JSON body")
+	}
+	entries = envelope.Apps
+
+	if envelope.Timestamp == "" {
+		return entries, usageDate, nil, nil
+	}
+
+	deviceTime, parseErr := time.Parse(time.RFC3339Nano, envelope.Timestamp)
+	if parseErr != nil {
+		deviceTime, parseErr = time.Parse(time.RFC3339, envelope.Timestamp)
+	}
+	if parseErr != nil {
+		// Unparseable timestamp — fall back to server date, still accept the report.
+		return entries, usageDate, nil, nil
+	}
+
+	// RFC3339 embeds the timezone offset, so Format gives the date in the device's local tz.
+	usageDate = deviceTime.Format("2006-01-02")
+	skewMin := int(deviceTime.Sub(time.Now().UTC()).Minutes())
+	return entries, usageDate, &skewMin, nil
+}
+
 func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 	userUUID := r.Context().Value(CtxUserUUID).(string)
 	log := logFromCtx(r.Context())
 	log.Info("received usage report")
-	var body []struct {
-		PackageName      string `json:"packageName"`
-		AppName          string `json:"appName"`
-		TotalUsedMinutes int    `json:"totalUsedMinutes"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid JSON body, expected array", http.StatusBadRequest)
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
 
-	if len(body) == 0 {
-		http.Error(w, "empty report array", http.StatusBadRequest)
+	log.Info("report body", "body", string(bodyBytes))
+	apps, usageDate, skewMinutes, err := parseReportBody(bodyBytes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	today := time.Now().Format("2006-01-02")
+	if skewMinutes != nil {
+		db.Exec("UPDATE users SET last_report_skew_minutes = ? WHERE uuid = ?", *skewMinutes, userUUID)
+		log.Info("device timestamp received", "skewMinutes", *skewMinutes)
+	}
 
-	log.Info("usage report entries", "count", len(body))
-	for _, entry := range body {
+	if len(apps) == 0 {
+		http.Error(w, "empty report", http.StatusBadRequest)
+		return
+	}
+
+	log.Info("usage report entries", "count", len(apps), "usageDate", usageDate)
+	for _, entry := range apps {
 		log.Info("app usage", "package", entry.PackageName, "app", entry.AppName, "minutes", entry.TotalUsedMinutes)
 		if entry.PackageName == "" {
 			http.Error(w, "packageName is required for each entry", http.StatusBadRequest)
@@ -478,7 +543,7 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 			 ON CONFLICT(user_uuid, package_name, usage_date) DO UPDATE SET
 			   total_used_minutes = excluded.total_used_minutes,
 			   app_name = COALESCE(excluded.app_name, app_usage.app_name)`,
-			userUUID, entry.PackageName, today, entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
+			userUUID, entry.PackageName, usageDate, entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
 		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

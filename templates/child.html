@@ -12,6 +12,11 @@
     <a href="/web/children/{{.Child.UUID}}/settings" style="font-size:0.9rem">{{call .T "NewToken"}}</a>
   </article>
   {{end}}
+  {{if .ClockSuspect}}
+  <article style="text-align:center;background:#e65100;color:#fff;padding:1rem">
+    <p style="margin-bottom:0"><small>{{call .T "ClockManipulationWarning" (dict "Minutes" .ClockSkew)}}</small></p>
+  </article>
+  {{end}}
 
   <section>
     <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, every 30s [!document.querySelector('dialog[open]')]" hx-swap="innerHTML">

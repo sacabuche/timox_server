@@ -328,3 +328,15 @@ other = """Activo: {{.Minutes}} min/día en total"""
 
 [TotalLimitRemaining]
 other = """restantes"""
+
+[TimezoneSection]
+other = """Zona horaria del hijo"""
+
+[TimezoneHelp]
+other = """Establece la zona horaria del dispositivo del hijo para registrar correctamente las fechas de uso. Usa formato IANA, p. ej. America/New_York."""
+
+[TimezoneLabel]
+other = """Zona horaria"""
+
+[ClockManipulationWarning]
+other = """⚠ El reloj del dispositivo está desfasado {{.Minutes}} minutos — el hijo puede haber cambiado la hora de su teléfono."""

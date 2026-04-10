@@ -338,7 +338,16 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		UnlockTime        string // non-empty = currently blocked by schedule
 	}
 
-	todayStr := time.Now().Format("2006-01-02")
+	var tzStr sql.NullString
+	wh.DB.QueryRow("SELECT timezone FROM users WHERE uuid = ?", childUUID).Scan(&tzStr)
+	loc := time.UTC
+	if tzStr.Valid && tzStr.String != "" {
+		if l, err := time.LoadLocation(tzStr.String); err == nil {
+			loc = l
+		}
+	}
+
+	todayStr := time.Now().In(loc).Format("2006-01-02")
 	selectedDate := r.URL.Query().Get("date")
 	if selectedDate == "" {
 		selectedDate = todayStr

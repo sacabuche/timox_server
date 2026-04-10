@@ -51,9 +51,16 @@ func (wh *WebHandler) showChild(w http.ResponseWriter, r *http.Request) {
 		staleReport = !hasRecentReport
 	}
 
+	var skew sql.NullInt64
+	wh.DB.QueryRow("SELECT last_report_skew_minutes FROM users WHERE uuid = ?", childUUID).Scan(&skew)
+	// Flag as suspicious if the device clock is off by more than 10 minutes.
+	clockSuspect := skew.Valid && (skew.Int64 > 10 || skew.Int64 < -10)
+
 	renderPage(w, r, "child-page", map[string]interface{}{
-		"Child":       child,
-		"StaleReport": staleReport,
+		"Child":        child,
+		"StaleReport":  staleReport,
+		"ClockSuspect": clockSuspect,
+		"ClockSkew":    skew.Int64,
 	})
 }
 
@@ -78,8 +85,8 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 	delayed := isDelayedChangesEnabled(wh.DB, childUUID)
 	disableAt := delayedChangesDisableAt(wh.DB, childUUID)
 
-	var scheduleStart, scheduleEnd sql.NullString
-	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd)
+	var scheduleStart, scheduleEnd, timezone sql.NullString
+	wh.DB.QueryRow("SELECT blocking_start_time, blocking_end_time, timezone FROM users WHERE uuid = ?", childUUID).Scan(&scheduleStart, &scheduleEnd, &timezone)
 
 	var totalLimitMinutes int
 	var hasTotalLimit bool
@@ -101,6 +108,7 @@ func (wh *WebHandler) showChildSettings(w http.ResponseWriter, r *http.Request) 
 		"BlockedHours":      scheduleBlockedDuration(scheduleStart.String, scheduleEnd.String),
 		"TotalLimitMinutes": totalLimitMinutes,
 		"HasTotalLimit":     hasTotalLimit,
+		"Timezone":          timezone.String,
 		"BuildDate":         buildDate,
 		"CommitSHA":         commitSHA,
 	})
@@ -421,4 +429,30 @@ func (wh *WebHandler) listChildren(parentUUID string) []ChildSummary {
 		list = []ChildSummary{}
 	}
 	return list
+}
+
+func (wh *WebHandler) saveTimezone(w http.ResponseWriter, r *http.Request) {
+	parentUUID := r.Context().Value(CtxUserUUID).(string)
+	childUUID := chi.URLParam(r, "childUUID")
+
+	if !wh.ownsChild(parentUUID, childUUID) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	tz := strings.TrimSpace(r.FormValue("timezone"))
+	if tz != "" {
+		if _, err := time.LoadLocation(tz); err != nil {
+			http.Error(w, "invalid timezone", http.StatusBadRequest)
+			return
+		}
+		wh.DB.Exec("UPDATE users SET timezone = ? WHERE uuid = ?", tz, childUUID)
+	} else {
+		wh.DB.Exec("UPDATE users SET timezone = NULL WHERE uuid = ?", childUUID)
+	}
+
+	renderPartial(w, r, "timezone-form", map[string]interface{}{
+		"Child":    User{UUID: childUUID},
+		"Timezone": tz,
+	})
 }
