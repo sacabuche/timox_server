@@ -27,6 +27,18 @@ type PendingIcon struct {
 	FileName    string
 }
 
+type ZeroApp struct {
+	PackageName string
+	AppName     string
+	IconPath    string
+	ReportCount int
+}
+
+type ZeroAppsPage struct {
+	Apps        []ZeroApp
+	NoIconCount int
+}
+
 func main() {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
@@ -49,6 +61,10 @@ func main() {
 	mux.HandleFunc("GET /img/{filename}", handleServeIcon)
 	mux.HandleFunc("POST /approve/{id}", handleApprove)
 	mux.HandleFunc("POST /reject/{id}", handleReject)
+	mux.HandleFunc("GET /zero-apps", handleZeroApps)
+	mux.HandleFunc("POST /zero-apps/delete", handleDeleteZeroApp)
+	mux.HandleFunc("POST /zero-apps/delete-all-no-icon", handleDeleteAllZeroNoIcon)
+	mux.HandleFunc("GET /icon/{filename}", handleServeApprovedIcon)
 
 	addr := "localhost:9191"
 	log.Printf("admin listening on http://%s", addr)
@@ -97,6 +113,15 @@ func handleServeIcon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(iconsDir, "pending-icons", filename))
+}
+
+func handleServeApprovedIcon(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(iconsDir, "icons", filename))
 }
 
 func handleApprove(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +179,139 @@ func handleReject(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func listZeroApps() ([]ZeroApp, error) {
+	rows, err := db.Query(`
+		SELECT au.package_name, COALESCE(a.app_name, ''), COALESCE(a.icon_path, ''), COUNT(*) AS report_count
+		FROM app_usage au
+		LEFT JOIN apps a ON a.package_name = au.package_name
+		GROUP BY au.package_name
+		HAVING SUM(au.total_used_minutes) = 0
+		ORDER BY au.package_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var apps []ZeroApp
+	for rows.Next() {
+		var z ZeroApp
+		if err := rows.Scan(&z.PackageName, &z.AppName, &z.IconPath, &z.ReportCount); err != nil {
+			return nil, err
+		}
+		apps = append(apps, z)
+	}
+	return apps, nil
+}
+
+func handleZeroApps(w http.ResponseWriter, r *http.Request) {
+	apps, err := listZeroApps()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var noIconCount int
+	for _, z := range apps {
+		if z.IconPath == "" {
+			noIconCount++
+		}
+	}
+	if err := zeroAppsTmpl.Execute(w, ZeroAppsPage{Apps: apps, NoIconCount: noIconCount}); err != nil {
+		log.Printf("template error: %v", err)
+	}
+}
+
+func handleDeleteAllZeroNoIcon(w http.ResponseWriter, r *http.Request) {
+	apps, err := listZeroApps()
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	for _, z := range apps {
+		if z.IconPath != "" {
+			continue
+		}
+		for _, q := range []string{
+			`DELETE FROM app_usage WHERE package_name = ?`,
+			`DELETE FROM app_limits WHERE package_name = ?`,
+			`DELETE FROM pending_app_limits WHERE package_name = ?`,
+			`DELETE FROM app_schedules WHERE package_name = ?`,
+			`DELETE FROM pending_icons WHERE package_name = ?`,
+			`DELETE FROM apps WHERE package_name = ?`,
+		} {
+			if _, err := tx.Exec(q, z.PackageName); err != nil {
+				http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "commit error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/zero-apps", http.StatusSeeOther)
+}
+
+func handleDeleteZeroApp(w http.ResponseWriter, r *http.Request) {
+	pkg := r.FormValue("package_name")
+	if pkg == "" {
+		http.Error(w, "missing package_name", http.StatusBadRequest)
+		return
+	}
+
+	// Verify this app still qualifies (only zero-usage records) before deleting.
+	var totalUsed int
+	err := db.QueryRow(
+		`SELECT COALESCE(SUM(total_used_minutes), 0) FROM app_usage WHERE package_name = ?`, pkg,
+	).Scan(&totalUsed)
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if totalUsed > 0 {
+		http.Error(w, "app has non-zero usage, refusing to delete", http.StatusConflict)
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	for _, q := range []string{
+		`DELETE FROM app_usage WHERE package_name = ?`,
+		`DELETE FROM app_limits WHERE package_name = ?`,
+		`DELETE FROM pending_app_limits WHERE package_name = ?`,
+		`DELETE FROM app_schedules WHERE package_name = ?`,
+		`DELETE FROM pending_icons WHERE package_name = ?`,
+		`DELETE FROM apps WHERE package_name = ?`,
+	} {
+		if _, err := tx.Exec(q, pkg); err != nil {
+			http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "commit error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/zero-apps", http.StatusSeeOther)
+}
+
 func sanitize(pkg string) string {
 	var b strings.Builder
 	for _, c := range pkg {
@@ -164,16 +322,26 @@ func sanitize(pkg string) string {
 	return b.String()
 }
 
+const sharedCSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; padding: 2rem; }
+  nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+  nav a {
+    padding: .4rem .9rem; border-radius: 6px; text-decoration: none;
+    font-size: .9rem; font-weight: 600; background: #e5e7eb; color: #374151;
+  }
+  nav a.active { background: #374151; color: #fff; }
+  nav a:hover:not(.active) { background: #d1d5db; }
+  h1 { margin-bottom: 1.5rem; font-size: 1.25rem; color: #333; }
+  .empty { color: #888; }
+`
+
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Icon Review</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f5f5f5; padding: 2rem; }
-  h1 { margin-bottom: 1.5rem; font-size: 1.25rem; color: #333; }
-  .empty { color: #888; }
+<style>` + sharedCSS + `
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
   .card {
     background: #fff; border-radius: 10px; padding: 1rem;
@@ -197,6 +365,10 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 </style>
 </head>
 <body>
+<nav>
+  <a href="/" class="active">Icon Review</a>
+  <a href="/zero-apps">Zero-Time Apps</a>
+</nav>
 <h1>Pending Icons ({{len .}})</h1>
 {{if .}}
 <div class="grid">
@@ -220,5 +392,149 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 {{else}}
 <p class="empty">No pending icons.</p>
 {{end}}
+</body>
+</html>`))
+
+var zeroAppsTmpl = template.Must(template.New("zero-apps").Funcs(template.FuncMap{
+	"iconFile": func(iconPath string) string {
+		return filepath.Base(iconPath)
+	},
+}).Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zero-Time Apps</title>
+<style>` + sharedCSS + `
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  th { background: #f9fafb; text-align: left; padding: .6rem 1rem; font-size: .8rem; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid #e5e7eb; }
+  td { padding: .65rem 1rem; font-size: .88rem; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .pkg { color: #888; font-size: .78rem; word-break: break-all; }
+  .count { color: #6b7280; }
+  .btn-delete {
+    padding: .3rem .8rem; border: none; border-radius: 6px;
+    background: #ef4444; color: #fff; cursor: pointer;
+    font-size: .82rem; font-weight: 600;
+  }
+  .btn-delete:hover { background: #dc2626; }
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.4); align-items: center; justify-content: center; z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,.2); max-width: 360px; width: 100%; margin: 1rem;
+  }
+  .modal h2 { font-size: 1rem; margin-bottom: .5rem; color: #111; }
+  .modal p { font-size: .875rem; color: #6b7280; margin-bottom: 1.25rem; word-break: break-all; }
+  .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+  .btn-cancel {
+    padding: .4rem .9rem; border: 1px solid #d1d5db; border-radius: 6px;
+    background: #fff; color: #374151; cursor: pointer; font-size: .875rem; font-weight: 600;
+  }
+  .btn-cancel:hover { background: #f3f4f6; }
+  .btn-confirm-delete {
+    padding: .4rem .9rem; border: none; border-radius: 6px;
+    background: #ef4444; color: #fff; cursor: pointer; font-size: .875rem; font-weight: 600;
+  }
+  .btn-confirm-delete:hover { background: #dc2626; }
+  .btn-delete-all {
+    padding: .4rem .9rem; border: none; border-radius: 6px;
+    background: #ef4444; color: #fff; cursor: pointer; font-size: .875rem; font-weight: 600;
+  }
+  .btn-delete-all:hover { background: #dc2626; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">Icon Review</a>
+  <a href="/zero-apps" class="active">Zero-Time Apps</a>
+</nav>
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+  <h1 style="margin:0;">Zero-Time Apps ({{len .Apps}})</h1>
+  {{if .NoIconCount}}
+  <button class="btn-delete-all" onclick="openDeleteAllModal()">Delete all without icon ({{.NoIconCount}})</button>
+  {{end}}
+</div>
+{{if .Apps}}
+<table>
+  <thead>
+    <tr>
+      <th>App</th>
+      <th>Reports</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {{range .Apps}}
+    <tr>
+      <td style="display:flex;align-items:center;gap:.75rem;">
+        {{if .IconPath}}<img src="/icon/{{iconFile .IconPath}}" width="40" height="40" style="border-radius:8px;flex-shrink:0;">{{else}}<div style="width:40px;height:40px;border-radius:8px;background:#e5e7eb;flex-shrink:0;"></div>{{end}}
+        <div>
+          {{if .AppName}}<strong>{{.AppName}}</strong><br>{{end}}
+          <span class="pkg">{{.PackageName}}</span>
+        </div>
+      </td>
+      <td class="count">{{.ReportCount}}</td>
+      <td>
+        <button class="btn-delete" data-pkg="{{.PackageName}}" data-name="{{.AppName}}" onclick="openModal(this)">Delete</button>
+      </td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">No apps with zero-only usage records.</p>
+{{end}}
+
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <h2>Delete app?</h2>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <form method="POST" action="/zero-apps/delete" style="margin:0">
+        <input type="hidden" name="package_name" id="modal-pkg">
+        <button class="btn-confirm-delete" type="submit">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-all" onclick="closeDeleteAllModal(event)">
+  <div class="modal">
+    <h2>Delete all apps without icon?</h2>
+    <p>All <strong>{{.NoIconCount}}</strong> apps with zero usage and no icon will be removed from all records. This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteAllModal()">Cancel</button>
+      <form method="POST" action="/zero-apps/delete-all-no-icon" style="margin:0">
+        <button class="btn-confirm-delete" type="submit">Delete all</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openModal(btn) {
+  var pkg = btn.dataset.pkg;
+  var name = btn.dataset.name;
+  document.getElementById('modal-pkg').value = pkg;
+  document.getElementById('modal-body').textContent =
+    (name ? name + ' (' + pkg + ')' : pkg) + ' will be removed from all records.';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('overlay')) return;
+  document.getElementById('overlay').classList.remove('open');
+}
+function openDeleteAllModal() {
+  document.getElementById('overlay-all').classList.add('open');
+}
+function closeDeleteAllModal(e) {
+  if (e && e.target !== document.getElementById('overlay-all')) return;
+  document.getElementById('overlay-all').classList.remove('open');
+}
+</script>
 </body>
 </html>`))
