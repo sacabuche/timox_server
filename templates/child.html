@@ -32,15 +32,15 @@
   {{if .HasTotalLimit}}
   {{$remaining := (sub .TotalLimitMinutes .TotalUsage)}}
   <article style="padding:.75rem 1rem;margin-bottom:.5rem;{{if le $remaining 0}}background:var(--pico-del-color){{end}}">
-    <strong>{{call .T "TotalDailyLimitSection"}}</strong>
-    <span style="float:right">
-      {{fmtMin .TotalUsage}} / {{fmtMin .TotalLimitMinutes}} min
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+      <span>{{fmtMin .TotalUsage}} / {{fmtMin .TotalLimitMinutes}} min</span>
       {{if le $remaining 0}}
-        — <span class="text-red">{{call .T "OverLimit"}}</span>
+      {{$overage := sub .TotalUsage .TotalLimitMinutes}}
+      <span class="text-red"><strong>Excedido: {{fmtMin $overage}} min</strong></span>
       {{else}}
-        — <span class="text-green">{{fmtMin $remaining}} {{call .T "TotalLimitRemaining"}}</span>
+      <span class="text-green">{{fmtMin $remaining}} {{call .T "TotalLimitRemaining"}}</span>
       {{end}}
-    </span>
+    </div>
   </article>
   {{else if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
   {{if gt .TotalUsageAll .TotalUsage}}<p style="font-size:.85rem;color:var(--pico-muted-color)">Total incl. sin restricción: {{fmtMin .TotalUsageAll}} min</p>{{end}}
