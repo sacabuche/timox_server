@@ -43,6 +43,7 @@
     </span>
   </article>
   {{else if .TotalUsage}}<p><strong>{{call .T "TotalToday"}}</strong> {{fmtMin .TotalUsage}} min</p>{{end}}
+  {{if gt .TotalUsageAll .TotalUsage}}<p style="font-size:.85rem;color:var(--pico-muted-color)">Total incl. sin restricción: {{fmtMin .TotalUsageAll}} min</p>{{end}}
   {{if .GlobalSchedule}}<p style="font-size:.9rem">{{call .T "GlobalScheduleLabel"}}: {{.GlobalSchedule}}{{if .GlobalUnlockTime}} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e53935;animation:glow-pulse 1.5s ease-in-out infinite;vertical-align:middle;margin-left:4px"></span>{{end}}</p>{{end}}
   <div style="display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:.5rem">
     <button class="outline secondary" style="width:auto;margin:0;padding:.2rem .6rem"
@@ -85,7 +86,7 @@
         {{else if eq .App.BlockType 3}}{{if .App.UsedToday}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong> · {{end}}{{call .T "BlockTypeUnrestricted"}}
         {{else if .App.Unlimited}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
         {{else if .App.HasLimit}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong> / Limit: <strong style="color:var(--pico-color)">{{fmtDur .App.DailyLimitMinutes}}</strong>{{if .App.HasPending}} <span style="color:#e65100">→ {{fmtDur .App.PendingLimit}} ({{.App.PendingIn}})</span>{{end}}
-        {{else}}{{if .App.UsedToday}}{{fmtMin .App.TotalUsedMinutes}} min · {{end}}{{call .T "NoLimit"}}
+        {{else}}{{if .App.UsedToday}}Used: <strong style="color:var(--pico-color)">{{fmtDur .App.TotalUsedMinutes}}</strong>{{end}}
         {{end}}
         {{if .App.HasSchedule}}<br>{{call .T "ScheduleLabel"}}: {{.App.ScheduleStart}}–{{.App.ScheduleEnd}}{{end}}
       </div>

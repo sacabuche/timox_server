@@ -527,8 +527,12 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		return other[i].DisplayName < other[j].DisplayName
 	})
 
-	var totalUsage int
+	var totalUsage, totalUsageAll int
 	for _, a := range apps {
+		totalUsageAll += a.TotalUsedMinutes
+		if a.HasLimit && a.BlockType == BlockTypeUnrestricted {
+			continue
+		}
 		totalUsage += a.TotalUsedMinutes
 	}
 
@@ -546,6 +550,7 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		"Blocked":           blocked,
 		"Other":             other,
 		"TotalUsage":        totalUsage,
+		"TotalUsageAll":     totalUsageAll,
 		"GlobalSchedule":    globalScheduleStr,
 		"GlobalUnlockTime":  globalUnlockTime,
 		"TotalLimitMinutes": totalLimitMinutes,
