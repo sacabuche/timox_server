@@ -515,6 +515,7 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db.Exec("UPDATE users SET last_report_at = CURRENT_TIMESTAMP WHERE uuid = ?", userUUID)
 	if skewMinutes != nil {
 		db.Exec("UPDATE users SET last_report_skew_minutes = ? WHERE uuid = ?", *skewMinutes, userUUID)
 		log.Info("device timestamp received", "skewMinutes", *skewMinutes)

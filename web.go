@@ -127,3 +127,23 @@ func formatDuration(d time.Duration) string {
 	}
 	return fmt.Sprintf("%d minutes", m)
 }
+
+func timeAgo(t time.Time) string {
+	d := time.Since(t)
+	if d < time.Minute {
+		return "just now"
+	}
+	if d < time.Hour {
+		m := int(d.Minutes())
+		return fmt.Sprintf("%d min ago", m)
+	}
+	if d < 24*time.Hour {
+		h := int(d.Hours())
+		return fmt.Sprintf("%dh ago", h)
+	}
+	days := int(d.Hours() / 24)
+	if days == 1 {
+		return "1 day ago"
+	}
+	return fmt.Sprintf("%d days ago", days)
+}

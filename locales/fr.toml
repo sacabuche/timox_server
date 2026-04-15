@@ -145,6 +145,9 @@ other = """SUPPRIMER"""
 [TokenExpiresAt]
 other = """Expire à {{.Time}}"""
 
+[LastReport]
+other = """Dernier rapport"""
+
 [StaleReportWarning]
 other = """Aucun rapport depuis 24h. Vérifiez l'appareil de l'enfant."""
 

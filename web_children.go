@@ -52,15 +52,22 @@ func (wh *WebHandler) showChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var skew sql.NullInt64
-	wh.DB.QueryRow("SELECT last_report_skew_minutes FROM users WHERE uuid = ?", childUUID).Scan(&skew)
+	var lastReportAt sql.NullTime
+	wh.DB.QueryRow("SELECT last_report_skew_minutes, last_report_at FROM users WHERE uuid = ?", childUUID).Scan(&skew, &lastReportAt)
 	// Flag as suspicious if the device clock is off by more than 10 minutes.
 	clockSuspect := skew.Valid && (skew.Int64 > 10 || skew.Int64 < -10)
 
+	lastReportAgo := ""
+	if lastReportAt.Valid {
+		lastReportAgo = timeAgo(lastReportAt.Time)
+	}
+
 	renderPage(w, r, "child-page", map[string]interface{}{
-		"Child":        child,
-		"StaleReport":  staleReport,
-		"ClockSuspect": clockSuspect,
-		"ClockSkew":    skew.Int64,
+		"Child":         child,
+		"StaleReport":   staleReport,
+		"ClockSuspect":  clockSuspect,
+		"ClockSkew":     skew.Int64,
+		"LastReportAgo": lastReportAgo,
 	})
 }
 

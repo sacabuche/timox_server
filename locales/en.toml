@@ -145,6 +145,9 @@ other = """DELETE"""
 [TokenExpiresAt]
 other = """Expires at {{.Time}}"""
 
+[LastReport]
+other = """Last report"""
+
 [StaleReportWarning]
 other = """No reports in 24h. Check child's device."""
 

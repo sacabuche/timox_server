@@ -4,7 +4,8 @@
     <ul><li><a href="/web/children/{{.Child.UUID}}/settings" role="button" class="outline secondary" style="padding:.2rem .5rem;font-size:1.2rem;line-height:1">&#9881;</a></li></ul>
   </nav>
 
-  <h2 style="margin-bottom:1rem">{{.Child.Name}}</h2>
+  <h2 style="margin-bottom:.25rem">{{.Child.Name}}</h2>
+  {{if .LastReportAgo}}<p style="font-size:.8rem;color:var(--pico-muted-color);margin-bottom:1rem">{{call .T "LastReport"}}: {{.LastReportAgo}}</p>{{end}}
 
   {{if .StaleReport}}
   <article style="text-align:center;background:var(--pico-del-color);color:var(--pico-color);padding: 1rem">
