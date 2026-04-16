@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -315,6 +316,72 @@ func (wh *WebHandler) deleteChildSchedule(w http.ResponseWriter, r *http.Request
 	wh.renderApps(w, r, childUUID)
 }
 
+// appSnapshotRow holds the raw snapshot data for one app returned by the usage query.
+type appSnapshotRow struct {
+	PackageName string
+	DisplayName string
+	Snapshots   string // raw JSON: [[minute_of_day, cumulative_minutes], ...]
+}
+
+// buildChartDelta computes per-hour usage deltas from snapshot rows since sinceMinute.
+// sinceMinute=0 returns all of today's data. For each app, the delta is computed
+// relative to the last known cumulative at or before sinceMinute, so the caller can
+// simply add the returned hourDeltas to existing chart data without a full rebuild.
+// Returns JSON {"hourDeltas":[24 ints],"lastMinute":N} and the new lastMinute.
+func buildChartDelta(rows []appSnapshotRow, sinceMinute int) ([]byte, int) {
+	var hourDeltas [24]int
+	lastMinute := sinceMinute
+
+	for _, row := range rows {
+		var raw [][]float64
+		if err := json.Unmarshal([]byte(row.Snapshots), &raw); err != nil || len(raw) == 0 {
+			continue
+		}
+		sort.Slice(raw, func(i, j int) bool { return raw[i][0] < raw[j][0] })
+
+		// Find the baseline cumulative at or before sinceMinute.
+		baseline := 0.0
+		for _, pt := range raw {
+			if len(pt) >= 2 && int(pt[0]) <= sinceMinute {
+				baseline = pt[1]
+			}
+		}
+
+		prev := baseline
+		for _, pt := range raw {
+			if len(pt) < 2 {
+				continue
+			}
+			minute := int(pt[0])
+			if minute <= sinceMinute {
+				continue
+			}
+			delta := pt[1] - prev
+			if delta < 0 {
+				delta = 0
+			}
+			hour := minute / 60
+			if hour > 23 {
+				hour = 23
+			}
+			hourDeltas[hour] += int(math.Round(delta))
+			prev = pt[1]
+			if minute > lastMinute {
+				lastMinute = minute
+			}
+		}
+	}
+
+	b, err := json.Marshal(map[string]interface{}{
+		"hourDeltas": hourDeltas[:],
+		"lastMinute": lastMinute,
+	})
+	if err != nil {
+		return []byte(`{"hourDeltas":null,"lastMinute":0}`), sinceMinute
+	}
+	return b, lastMinute
+}
+
 func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUUID string) {
 	type AppRow struct {
 		PackageName       string
@@ -450,18 +517,21 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 			(SELECT app_name FROM app_usage
 			 WHERE user_uuid = ? AND package_name = au.package_name AND app_name IS NOT NULL
 			 ORDER BY usage_date DESC LIMIT 1) AS app_name,
-			a.icon_path
+			a.icon_path,
+			COALESCE(MAX(CASE WHEN au.usage_date = ? THEN au.snapshots END), '[]') AS snapshots
 		FROM app_usage au
 		LEFT JOIN apps a ON a.package_name = au.package_name
 		WHERE au.user_uuid = ?
-		GROUP BY au.package_name`, today, childUUID, childUUID)
+		GROUP BY au.package_name`, today, childUUID, today, childUUID)
+
+	var snapshotRows []appSnapshotRow
 	if usageRows != nil {
 		defer usageRows.Close()
 		for usageRows.Next() {
 			var pkg string
 			var used int
-			var appName, iconPath sql.NullString
-			usageRows.Scan(&pkg, &used, &appName, &iconPath)
+			var appName, iconPath, snapshots sql.NullString
+			usageRows.Scan(&pkg, &used, &appName, &iconPath, &snapshots)
 			usedToday := used > 0
 			iconURL := ""
 			if iconPath.String != "" {
@@ -478,6 +548,13 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 				}
 			} else {
 				apps[pkg] = &AppRow{PackageName: pkg, AppName: appName.String, TotalUsedMinutes: used, UsedToday: usedToday, IconPath: iconURL}
+			}
+			if snapshots.String != "" && snapshots.String != "[]" {
+				snapshotRows = append(snapshotRows, appSnapshotRow{
+					PackageName: pkg,
+					DisplayName: appName.String,
+					Snapshots:   snapshots.String,
+				})
 			}
 		}
 	}
@@ -561,4 +638,54 @@ func (wh *WebHandler) renderApps(w http.ResponseWriter, r *http.Request, childUU
 		"NextDate":          nextDate,
 		"IsToday":           isToday,
 	})
+}
+
+// getChildChart returns incremental hourly usage deltas since ?since=<minute>.
+// sinceMinute=0 (default) returns all of today's data as deltas from zero.
+// Response: {"hourDeltas":[24 ints],"lastMinute":N}
+func (wh *WebHandler) getChildChart(w http.ResponseWriter, r *http.Request) {
+	parentUUID := r.Context().Value(CtxUserUUID).(string)
+	childUUID := chi.URLParam(r, "childUUID")
+	if !wh.ownsChild(parentUUID, childUUID) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	sinceMinute, _ := strconv.Atoi(r.URL.Query().Get("since"))
+	if sinceMinute < 0 {
+		sinceMinute = 0
+	}
+
+	var tzStr sql.NullString
+	wh.DB.QueryRow("SELECT timezone FROM users WHERE uuid = ?", childUUID).Scan(&tzStr)
+	loc := time.UTC
+	if tzStr.Valid && tzStr.String != "" {
+		if l, err := time.LoadLocation(tzStr.String); err == nil {
+			loc = l
+		}
+	}
+	today := time.Now().In(loc).Format("2006-01-02")
+
+	dbRows, err := wh.DB.Query(`
+		SELECT au.package_name, au.snapshots
+		FROM app_usage au
+		WHERE au.user_uuid = ? AND au.usage_date = ? AND au.snapshots != '[]'`,
+		childUUID, today)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.Write([]byte(`{"hourDeltas":null,"lastMinute":0}`))
+		return
+	}
+	defer dbRows.Close()
+
+	var snapshotRows []appSnapshotRow
+	for dbRows.Next() {
+		var sr appSnapshotRow
+		dbRows.Scan(&sr.PackageName, &sr.Snapshots)
+		snapshotRows = append(snapshotRows, sr)
+	}
+
+	b, _ := buildChartDelta(snapshotRows, sinceMinute)
+	w.Write(b)
 }

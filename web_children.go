@@ -68,6 +68,7 @@ func (wh *WebHandler) showChild(w http.ResponseWriter, r *http.Request) {
 		"ClockSuspect":  clockSuspect,
 		"ClockSkew":     skew.Int64,
 		"LastReportAgo": lastReportAgo,
+		"RefreshMs":     refreshIntervalMs,
 	})
 }
 

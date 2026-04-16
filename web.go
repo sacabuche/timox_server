@@ -51,6 +51,7 @@ func (wh *WebHandler) Routes() chi.Router {
 		r.Post("/children/{childUUID}/token", wh.generateChildToken)
 		r.Get("/children/{childUUID}/token-status", wh.checkChildTokenStatus)
 		r.Get("/children/{childUUID}/apps", wh.getChildApps)
+		r.Get("/children/{childUUID}/chart", wh.getChildChart)
 		r.Get("/children/{childUUID}/limits/{packageName}/edit", wh.editChildLimit)
 		r.Get("/children/{childUUID}/limits/{packageName}/confirm-delete", wh.confirmDeleteChildLimit)
 		r.Post("/children/{childUUID}/limits", wh.addChildLimit)

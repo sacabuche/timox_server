@@ -30,6 +30,8 @@ var jwtSecret []byte
 var buildDate = "dev"
 var commitSHA = "dev"
 
+const refreshIntervalMs = 60000
+
 var logger *slog.Logger
 
 func initLogger() {
@@ -449,23 +451,26 @@ type reportEntry struct {
 // parseReportBody accepts both the legacy bare-array format and the new
 // envelope format {"timestamp":"<RFC3339>","apps":[...]}.
 // It returns the entries, the usage date to store (YYYY-MM-DD in the device's
-// local timezone when a timestamp is present, UTC date otherwise), and — when a
-// timestamp was supplied — a pointer to the clock skew in minutes so the caller
-// can persist it.
-func parseReportBody(body []byte) (entries []reportEntry, usageDate string, skew *int, err error) {
-	usageDate = time.Now().UTC().Format("2006-01-02")
+// local timezone when a timestamp is present, UTC date otherwise), a pointer to
+// the clock skew in minutes (when a timestamp was supplied), and a pointer to
+// the minute-of-day (0–1439) derived from the device timestamp (or server time).
+func parseReportBody(body []byte) (entries []reportEntry, usageDate string, skew *int, minuteOfDay *int, err error) {
+	now := time.Now().UTC()
+	usageDate = now.Format("2006-01-02")
+	mod := now.Hour()*60 + now.Minute()
+	minuteOfDay = &mod
 
 	trimmed := strings.TrimSpace(string(body))
 	if len(trimmed) == 0 {
-		return nil, "", nil, fmt.Errorf("empty body")
+		return nil, "", nil, nil, fmt.Errorf("empty body")
 	}
 
 	if trimmed[0] != '{' {
 		// Legacy format: bare JSON array.
 		if err = json.Unmarshal(body, &entries); err != nil {
-			return nil, "", nil, fmt.Errorf("invalid JSON body, expected array or {timestamp,apps} object")
+			return nil, "", nil, nil, fmt.Errorf("invalid JSON body, expected array or {timestamp,apps} object")
 		}
-		return entries, usageDate, nil, nil
+		return entries, usageDate, nil, minuteOfDay, nil
 	}
 
 	// New envelope format.
@@ -474,12 +479,12 @@ func parseReportBody(body []byte) (entries []reportEntry, usageDate string, skew
 		Apps      []reportEntry `json:"apps"`
 	}
 	if err = json.Unmarshal(body, &envelope); err != nil {
-		return nil, "", nil, fmt.Errorf("invalid JSON body")
+		return nil, "", nil, nil, fmt.Errorf("invalid JSON body")
 	}
 	entries = envelope.Apps
 
 	if envelope.Timestamp == "" {
-		return entries, usageDate, nil, nil
+		return entries, usageDate, nil, minuteOfDay, nil
 	}
 
 	deviceTime, parseErr := time.Parse(time.RFC3339Nano, envelope.Timestamp)
@@ -488,13 +493,14 @@ func parseReportBody(body []byte) (entries []reportEntry, usageDate string, skew
 	}
 	if parseErr != nil {
 		// Unparseable timestamp — fall back to server date, still accept the report.
-		return entries, usageDate, nil, nil
+		return entries, usageDate, nil, minuteOfDay, nil
 	}
 
 	// RFC3339 embeds the timezone offset, so Format gives the date in the device's local tz.
 	usageDate = deviceTime.Format("2006-01-02")
 	skewMin := int(deviceTime.Sub(time.Now().UTC()).Minutes())
-	return entries, usageDate, &skewMin, nil
+	devMOD := deviceTime.Hour()*60 + deviceTime.Minute()
+	return entries, usageDate, &skewMin, &devMOD, nil
 }
 
 func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
@@ -509,7 +515,7 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info("report body", "body", string(bodyBytes))
-	apps, usageDate, skewMinutes, err := parseReportBody(bodyBytes)
+	apps, usageDate, skewMinutes, minuteOfDay, err := parseReportBody(bodyBytes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -538,13 +544,17 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		mod := *minuteOfDay
 		_, err := db.Exec(
-			`INSERT INTO app_usage (user_uuid, package_name, usage_date, total_used_minutes, app_name)
-			 VALUES (?, ?, ?, ?, ?)
+			`INSERT INTO app_usage (user_uuid, package_name, usage_date, total_used_minutes, app_name, snapshots)
+			 VALUES (?, ?, ?, ?, ?, json_array(json_array(?, ?)))
 			 ON CONFLICT(user_uuid, package_name, usage_date) DO UPDATE SET
 			   total_used_minutes = excluded.total_used_minutes,
-			   app_name = COALESCE(excluded.app_name, app_usage.app_name)`,
+			   app_name           = COALESCE(excluded.app_name, app_usage.app_name),
+			   snapshots          = json_insert(app_usage.snapshots, '$[#]', json_array(?, ?))`,
 			userUUID, entry.PackageName, usageDate, entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
+			mod, entry.TotalUsedMinutes,
+			mod, entry.TotalUsedMinutes,
 		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

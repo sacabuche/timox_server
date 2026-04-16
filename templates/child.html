@@ -19,8 +19,96 @@
   </article>
   {{end}}
 
+  <div style="position:relative;height:180px;margin-bottom:1rem">
+    <canvas id="usage-chart-{{.Child.UUID}}"></canvas>
+  </div>
+  <script>
+  (function() {
+    var REFRESH_MS = {{.RefreshMs}};
+    var childUUID = '{{.Child.UUID}}';
+    var canvas = document.getElementById('usage-chart-' + childUUID);
+    var chart = null;
+    var lastMinute = 0;
+    var bars = new Array(24).fill(0);
+    var textColor = getComputedStyle(document.documentElement).getPropertyValue('--pico-color').trim() || '#888';
+
+    var labels = [];
+    for (var i = 0; i < 24; i++) labels.push(i + 'h');
+
+    function fmtMin(v) {
+      if (!v) return '0';
+      var h = Math.floor(v/60), m = v%60;
+      return h > 0 ? (m > 0 ? h+'h'+m+'m' : h+'h') : m+'min';
+    }
+
+    function cumulative(arr) {
+      var out = [], running = 0;
+      for (var i = 0; i < arr.length; i++) { running += arr[i]; out.push(running); }
+      return out;
+    }
+
+    function initChart() {
+      chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { type: 'bar', label: 'Usage', data: bars.slice(), backgroundColor: '#5c7cfa', order: 2 },
+            { type: 'line', label: 'Cumulative', data: cumulative(bars), borderColor: textColor, pointBackgroundColor: textColor, borderWidth: 2, fill: false, tension: 0.3, pointRadius: 2, order: 1 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 4 } },
+            y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function(v) { return fmtMin(v); } } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function(ctx) { var v = ctx.parsed.y; return v ? ctx.dataset.label + ': ' + fmtMin(v) : null; } } }
+          }
+        }
+      });
+      chart.resize();
+    }
+
+    function applyDeltas(deltas) {
+      var hasData = false;
+      for (var i = 0; i < 24; i++) {
+        if (deltas[i]) { bars[i] += deltas[i]; hasData = true; }
+      }
+      return hasData;
+    }
+
+    function fetchDelta() {
+      fetch('/web/children/' + childUUID + '/chart?since=' + lastMinute)
+        .then(function(r) { return r.json(); })
+        .then(function(update) {
+          if (!update || !update.hourDeltas) return;
+          var changed = applyDeltas(update.hourDeltas);
+          lastMinute = update.lastMinute || lastMinute;
+          if (!changed) return;
+          canvas.style.display = '';
+          chart.data.datasets[0].data = bars.slice();
+          chart.data.datasets[1].data = cumulative(bars);
+          chart.update('none');
+        })
+        .catch(function() {});
+    }
+
+    initChart();
+    fetchDelta();
+    setInterval(function() {
+      fetchDelta();
+      if (!document.querySelector('dialog[open]')) {
+        htmx.trigger(document.getElementById('apps-' + childUUID), 'refresh');
+      }
+    }, REFRESH_MS);
+  })();
+  </script>
+
   <section>
-    <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, every 30s [!document.querySelector('dialog[open]')]" hx-swap="innerHTML">
+    <div id="apps-{{.Child.UUID}}" hx-get="/web/children/{{.Child.UUID}}/apps" hx-trigger="load, refresh" hx-swap="innerHTML">
       <p aria-busy="true">{{call .T "LoadingApps"}}</p>
     </div>
   </section>

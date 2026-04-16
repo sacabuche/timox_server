@@ -1,0 +1,1 @@
+ALTER TABLE app_usage ADD COLUMN snapshots TEXT NOT NULL DEFAULT '[]';
