@@ -18,6 +18,22 @@
     <p style="margin-bottom:0"><small>{{call .T "ClockManipulationWarning" (dict "Minutes" .ClockSkew)}}</small></p>
   </article>
   {{end}}
+  {{if .PowerSaveEvents}}
+  <article style="padding:.75rem 1rem">
+    <p style="margin-bottom:.5rem"><strong>Power save enabled</strong></p>
+    <table style="font-size:.85rem;margin-bottom:0">
+      <thead><tr><th>Time</th><th>Battery</th></tr></thead>
+      <tbody>
+      {{range .PowerSaveEvents}}
+      <tr>
+        <td>{{.CreatedAt}}</td>
+        <td>{{if .BatteryLevel}}{{.BatteryLevel}}%{{else}}—{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </article>
+  {{end}}
 
   <div style="position:relative;height:180px;margin-bottom:1rem">
     <canvas id="usage-chart-{{.Child.UUID}}"></canvas>

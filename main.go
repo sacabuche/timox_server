@@ -597,6 +597,7 @@ func newRouter() chi.Router {
 
 	// Child: Report app usage (JWT required, role=child)
 	r.With(authMiddleware, requireRole("child")).Post("/report", handleReportAppUsage)
+	r.With(authMiddleware, requireRole("child")).Post("/events", handleReportEvents)
 
 	// Icons
 	r.With(authMiddleware, requireRole("child")).Post("/icons/check", handleIconsCheck)

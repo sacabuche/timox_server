@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,13 +63,40 @@ func (wh *WebHandler) showChild(w http.ResponseWriter, r *http.Request) {
 		lastReportAgo = timeAgo(lastReportAt.Time)
 	}
 
+	type PowerSaveEventRow struct {
+		BatteryLevel string // "45" or "" if unknown
+		CreatedAt    string
+	}
+	var powerSaveEvents []PowerSaveEventRow
+	if rows, err := wh.DB.Query(
+		`SELECT data, created_at FROM device_events
+		 WHERE user_uuid = ? AND event_type = ?
+		 ORDER BY created_at DESC LIMIT 10`, childUUID, eventTypeUltraSaveEnabled,
+	); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rawData, createdAt string
+			rows.Scan(&rawData, &createdAt)
+			var ev PowerSaveEventRow
+			ev.CreatedAt = createdAt
+			var m map[string]interface{}
+			if json.Unmarshal([]byte(rawData), &m) == nil {
+				if v, ok := m["batteryLevel"].(float64); ok {
+					ev.BatteryLevel = strconv.Itoa(int(v))
+				}
+			}
+			powerSaveEvents = append(powerSaveEvents, ev)
+		}
+	}
+
 	renderPage(w, r, "child-page", map[string]interface{}{
-		"Child":         child,
-		"StaleReport":   staleReport,
-		"ClockSuspect":  clockSuspect,
-		"ClockSkew":     skew.Int64,
-		"LastReportAgo": lastReportAgo,
-		"RefreshMs":     refreshIntervalMs,
+		"Child":           child,
+		"StaleReport":     staleReport,
+		"ClockSuspect":    clockSuspect,
+		"ClockSkew":       skew.Int64,
+		"LastReportAgo":   lastReportAgo,
+		"RefreshMs":       refreshIntervalMs,
+		"PowerSaveEvents": powerSaveEvents,
 	})
 }
 
