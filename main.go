@@ -370,6 +370,20 @@ func handleMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func handleRenewJWT(w http.ResponseWriter, r *http.Request) {
+	userUUID := r.Context().Value(CtxUserUUID).(string)
+	role := r.Context().Value(CtxUserRole).(string)
+
+	newJWT, err := generateJWT(userUUID, role)
+	if err != nil {
+		http.Error(w, "failed to generate JWT", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"jwt": newJWT})
+}
+
 // --- Child (own limits) ---
 
 func handleChildAppLimits(w http.ResponseWriter, r *http.Request) {
@@ -545,16 +559,58 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		mod := *minuteOfDay
-		_, err := db.Exec(
-			`INSERT INTO app_usage (user_uuid, package_name, usage_date, total_used_minutes, app_name, snapshots)
-			 VALUES (?, ?, ?, ?, ?, json_array(json_array(?, ?)))
-			 ON CONFLICT(user_uuid, package_name, usage_date) DO UPDATE SET
-			   total_used_minutes = excluded.total_used_minutes,
-			   app_name           = COALESCE(excluded.app_name, app_usage.app_name),
-			   snapshots          = json_insert(app_usage.snapshots, '$[#]', json_array(?, ?))`,
-			userUUID, entry.PackageName, usageDate, entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
-			mod, entry.TotalUsedMinutes,
-			mod, entry.TotalUsedMinutes,
+		var err error
+
+		var currentMinutes int
+		var snapshotsJSON string
+		rowErr := db.QueryRow(
+			`SELECT total_used_minutes, snapshots FROM app_usage
+			 WHERE user_uuid = ? AND package_name = ? AND usage_date = ?`,
+			userUUID, entry.PackageName, usageDate,
+		).Scan(&currentMinutes, &snapshotsJSON)
+
+		if rowErr == sql.ErrNoRows {
+			_, err = db.Exec(
+				`INSERT INTO app_usage (user_uuid, package_name, usage_date, total_used_minutes, app_name, snapshots)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+				userUUID, entry.PackageName, usageDate, entry.TotalUsedMinutes,
+				nilIfEmpty(entry.AppName),
+				fmt.Sprintf("[[%d,%d]]", mod, entry.TotalUsedMinutes),
+			)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			continue
+		}
+		if rowErr != nil {
+			http.Error(w, rowErr.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var snapshots [][]int
+		if unmarshalErr := json.Unmarshal([]byte(snapshotsJSON), &snapshots); unmarshalErr != nil {
+			log.Error("corrupt snapshots JSON, preserving existing", "package", entry.PackageName, "err", unmarshalErr)
+			// Skip snapshot update; still persist the new total_used_minutes.
+			_, err = db.Exec(
+				`UPDATE app_usage SET total_used_minutes = ?, app_name = COALESCE(?, app_name)
+				 WHERE user_uuid = ? AND package_name = ? AND usage_date = ?`,
+				entry.TotalUsedMinutes, nilIfEmpty(entry.AppName),
+				userUUID, entry.PackageName, usageDate,
+			)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			continue
+		}
+		newSnapshotsJSON, _ := json.Marshal(updateSnapshots(snapshots, mod, entry.TotalUsedMinutes))
+
+		_, err = db.Exec(
+			`UPDATE app_usage SET total_used_minutes = ?, app_name = COALESCE(?, app_name), snapshots = ?
+			 WHERE user_uuid = ? AND package_name = ? AND usage_date = ?`,
+			entry.TotalUsedMinutes, nilIfEmpty(entry.AppName), string(newSnapshotsJSON),
+			userUUID, entry.PackageName, usageDate,
 		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -563,6 +619,26 @@ func handleReportAppUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// updateSnapshots applies Option A (same-minute replace) and Option B (skip if no change).
+// Snapshots are [[minuteOfDay, cumulativeMinutes], ...] sorted by time.
+// Only appends/replaces when newMinutes strictly exceeds the last recorded value.
+func updateSnapshots(snapshots [][]int, mod, newMinutes int) [][]int {
+	if len(snapshots) == 0 {
+		return [][]int{{mod, newMinutes}}
+	}
+	last := snapshots[len(snapshots)-1]
+	if newMinutes <= last[1] {
+		return snapshots
+	}
+	if last[0] == mod {
+		result := make([][]int, len(snapshots))
+		copy(result, snapshots)
+		result[len(result)-1] = []int{mod, newMinutes}
+		return result
+	}
+	return append(snapshots, []int{mod, newMinutes})
 }
 
 func nilIfEmpty(s string) interface{} {
@@ -584,8 +660,9 @@ func newRouter() chi.Router {
 	r.Post("/auth/login", handleAuthLogin)
 	r.Post("/auth/child-login", handleChildLogin)
 
-	// Authenticated: get own profile
+	// Authenticated: get own profile + renew JWT
 	r.With(authMiddleware).Get("/me", handleMe)
+	r.With(authMiddleware).Post("/auth/renew", handleRenewJWT)
 
 	// Child: own limits (JWT required, role=child)
 	r.With(authMiddleware, requireRole("child")).Get("/app_limits", handleChildAppLimits)

@@ -2,10 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func setupTestDB(t *testing.T) {
@@ -1028,5 +1032,350 @@ func TestReportAppUsage_MissingAppName(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// ===================== Snapshot deduplication tests =====================
+
+func TestUpdateSnapshots(t *testing.T) {
+	cases := []struct {
+		name      string
+		existing  [][]int
+		mod       int
+		newMin    int
+		wantLen   int
+		wantLast  []int
+	}{
+		{"first insert", nil, 60, 10, 1, []int{60, 10}},
+		{"option B same value", [][]int{{60, 10}}, 61, 10, 1, []int{60, 10}},
+		{"option B lower value", [][]int{{60, 10}}, 61, 5, 1, []int{60, 10}},
+		{"option A same minute replace", [][]int{{60, 10}}, 60, 15, 1, []int{60, 15}},
+		{"option A same minute with prior", [][]int{{59, 8}, {60, 10}}, 60, 15, 2, []int{60, 15}},
+		{"append different minute", [][]int{{60, 10}}, 61, 15, 2, []int{61, 15}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := updateSnapshots(tc.existing, tc.mod, tc.newMin)
+			if len(got) != tc.wantLen {
+				t.Fatalf("len=%d want %d (got %v)", len(got), tc.wantLen, got)
+			}
+			last := got[len(got)-1]
+			if last[0] != tc.wantLast[0] || last[1] != tc.wantLast[1] {
+				t.Errorf("last=%v want %v", last, tc.wantLast)
+			}
+		})
+	}
+}
+
+func TestReportAppUsage_DuplicateReportSkipsSnapshot(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "dupchild")
+	childUUID := childResp["uuid"].(string)
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	body := `{"timestamp":"2026-01-15T10:00:00+00:00","apps":[{"packageName":"com.example.app","totalUsedMinutes":30}]}`
+	send := func() {
+		req := authReq(http.MethodPost, "/report", body, childJWT)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	send()
+	send() // exact duplicate
+
+	var snapshotsJSON string
+	db.QueryRow("SELECT snapshots FROM app_usage WHERE user_uuid = ? AND package_name = ?", childUUID, "com.example.app").Scan(&snapshotsJSON)
+
+	var snapshots [][]float64
+	if err := json.Unmarshal([]byte(snapshotsJSON), &snapshots); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots) != 1 {
+		t.Errorf("expected 1 snapshot after duplicate report, got %d: %s", len(snapshots), snapshotsJSON)
+	}
+}
+
+func TestReportAppUsage_SameMinuteHigherValueReplacesSnapshot(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "optionachild")
+	childUUID := childResp["uuid"].(string)
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	send := func(minutes int) {
+		body := fmt.Sprintf(`{"timestamp":"2026-01-15T10:00:00+00:00","apps":[{"packageName":"com.example.app","totalUsedMinutes":%d}]}`, minutes)
+		req := authReq(http.MethodPost, "/report", body, childJWT)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	send(10) // first report at minute 600
+	send(15) // same timestamp (minute 600), higher value — Option A: replace
+
+	var snapshotsJSON string
+	db.QueryRow("SELECT snapshots FROM app_usage WHERE user_uuid = ? AND package_name = ?", childUUID, "com.example.app").Scan(&snapshotsJSON)
+
+	var snapshots [][]float64
+	if err := json.Unmarshal([]byte(snapshotsJSON), &snapshots); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots) != 1 {
+		t.Errorf("Option A: expected 1 snapshot (replace), got %d: %s", len(snapshots), snapshotsJSON)
+	}
+	if len(snapshots) == 1 && snapshots[0][1] != 15 {
+		t.Errorf("Option A: expected snapshot value 15, got %v", snapshots[0][1])
+	}
+}
+
+func TestReportAppUsage_IncrementalMinutesAppend(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "incchild")
+	childUUID := childResp["uuid"].(string)
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	reports := []string{
+		`{"timestamp":"2026-01-15T10:00:00+00:00","apps":[{"packageName":"com.example.app","totalUsedMinutes":1}]}`,
+		`{"timestamp":"2026-01-15T10:01:00+00:00","apps":[{"packageName":"com.example.app","totalUsedMinutes":2}]}`,
+		`{"timestamp":"2026-01-15T10:02:00+00:00","apps":[{"packageName":"com.example.app","totalUsedMinutes":3}]}`,
+	}
+	for _, body := range reports {
+		req := authReq(http.MethodPost, "/report", body, childJWT)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+		}
+	}
+
+	var snapshotsJSON string
+	db.QueryRow("SELECT snapshots FROM app_usage WHERE user_uuid = ? AND package_name = ?", childUUID, "com.example.app").Scan(&snapshotsJSON)
+
+	var snapshots [][]float64
+	if err := json.Unmarshal([]byte(snapshotsJSON), &snapshots); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots) != 3 {
+		t.Errorf("expected 3 snapshots for 3 distinct minutes, got %d: %s", len(snapshots), snapshotsJSON)
+	}
+}
+
+// ===================== JWT renewal tests =====================
+
+// generateExpiredJWT mints a correctly-signed JWT whose exp is one hour in the past.
+func generateExpiredJWT(t *testing.T, userUUID, role string) string {
+	t.Helper()
+	claims := jwt.MapClaims{
+		"sub":  userUUID,
+		"role": role,
+		"exp":  time.Now().Add(-time.Hour).Unix(),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, err := tok.SignedString(jwtSecret)
+	if err != nil {
+		t.Fatalf("generateExpiredJWT: %v", err)
+	}
+	return s
+}
+
+// renewJWT calls POST /auth/renew and returns the HTTP status and the new JWT string (empty on non-200).
+func renewJWT(t *testing.T, handler http.Handler, bearerJWT string) (int, string) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/auth/renew", nil)
+	req.Header.Set("Authorization", "Bearer "+bearerJWT)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		return rec.Code, ""
+	}
+	var resp map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	return rec.Code, resp["jwt"]
+}
+
+func TestRenewJWT_ChildSuccess(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "kiddo")
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	code, newJWT := renewJWT(t, r, childJWT)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
+	}
+	if newJWT == "" {
+		t.Fatal("expected non-empty jwt in response")
+	}
+}
+
+func TestRenewJWT_ParentSuccess(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+
+	code, newJWT := renewJWT(t, r, parentJWT)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", code)
+	}
+	if newJWT == "" {
+		t.Fatal("expected non-empty jwt in response")
+	}
+}
+
+func TestRenewJWT_NoAuth(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/renew", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+}
+
+func TestRenewJWT_InvalidJWT(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	code, _ := renewJWT(t, r, "not.a.valid.jwt")
+	if code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", code)
+	}
+}
+
+func TestRenewJWT_ExpiredJWT(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "kiddo")
+	childUUID := childResp["uuid"].(string)
+
+	expiredJWT := generateExpiredJWT(t, childUUID, "child")
+	code, _ := renewJWT(t, r, expiredJWT)
+	if code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for expired JWT, got %d", code)
+	}
+}
+
+func TestRenewJWT_NewTokenPreservesChildRole(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "kiddo")
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	_, newJWT := renewJWT(t, r, childJWT)
+	if newJWT == "" {
+		t.Fatal("expected non-empty jwt after renewal")
+	}
+
+	// New JWT must still allow child endpoints
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authReq(http.MethodGet, "/app_limits", "", newJWT))
+	if rec.Code != http.StatusOK {
+		t.Errorf("renewed child JWT: GET /app_limits expected 200, got %d", rec.Code)
+	}
+
+	// New JWT must still deny parent-only endpoints
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, authReq(http.MethodGet, "/children", "", newJWT))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("renewed child JWT: GET /children expected 403, got %d", rec.Code)
+	}
+}
+
+func TestRenewJWT_NewTokenPreservesParentRole(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+
+	_, newJWT := renewJWT(t, r, parentJWT)
+	if newJWT == "" {
+		t.Fatal("expected non-empty jwt after renewal")
+	}
+
+	// New JWT must still allow parent endpoints
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authReq(http.MethodGet, "/children", "", newJWT))
+	if rec.Code != http.StatusOK {
+		t.Errorf("renewed parent JWT: GET /children expected 200, got %d", rec.Code)
+	}
+
+	// New JWT must still deny child-only endpoints
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, authReq(http.MethodGet, "/app_limits", "", newJWT))
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("renewed parent JWT: GET /app_limits expected 403, got %d", rec.Code)
+	}
+}
+
+func TestRenewJWT_DeletedUser(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "kiddo")
+	childJWT := loginChild(t, r, childResp["token"].(string))
+	childUUID := childResp["uuid"].(string)
+
+	db.Exec("DELETE FROM users WHERE uuid = ?", childUUID)
+
+	code, _ := renewJWT(t, r, childJWT)
+	if code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for deleted user JWT, got %d", code)
+	}
+}
+
+func TestRenewJWT_OriginalJWTStillWorksAfterRenewal(t *testing.T) {
+	setupTestDB(t)
+	r := newRouter()
+
+	// The server has no revocation list — the original JWT must remain valid
+	// until its own expiry even after a new one has been issued.
+	createParent(t, r, "parent@test.com")
+	parentJWT := loginParent(t, r, "parent@test.com")
+	childResp := createChildViaParent(t, r, parentJWT, "kiddo")
+	childJWT := loginChild(t, r, childResp["token"].(string))
+
+	_, newJWT := renewJWT(t, r, childJWT)
+	if newJWT == "" {
+		t.Fatal("expected non-empty jwt after renewal")
+	}
+
+	// Original JWT must still be accepted
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authReq(http.MethodGet, "/app_limits", "", childJWT))
+	if rec.Code != http.StatusOK {
+		t.Errorf("original JWT after renewal: GET /app_limits expected 200, got %d", rec.Code)
 	}
 }
